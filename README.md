@@ -11,3 +11,4 @@ Paper reviews with their implementations using [`Lucid² 💎`](https://github.c
 3. [VGGNet — Very Deep Convolutional Networks for Large-Scale Image Recognition](https://velog.io/@lumerico284/VGGNet-Very-Deep-Convolutional-Networks-for-Large-Scale-Image-Recognition) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/vgg.py)
 4. [GoogLeNet — Going Deeper with Convolutions](papers/googlenet.md) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/inception.py)
 5. [Inception-v3 — Rethinking the Inception Architecture for Computer Vision](papers/inception_v3.md) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/inception.py)
+6. [Inception-v4 — Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](papers/inception_v4.md) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/inception.py)
