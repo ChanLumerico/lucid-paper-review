@@ -1,6 +1,6 @@
 # [GoogLeNet] Going Deeper with Convolutions
 
-이 글은 Szegedy et al.(2014)의 _Going Deeper with Convolutions_ 을 요약이 아니라, 원 논문의 전개(문제 제기 → 관련 연구 → 동기/설계 원칙 → Inception 모듈 설계 → GoogLeNet 구체화 → 학습 방법론 → ILSVRC 분류/검출 결과 → 결론)를 가능한 한 그대로 따라가며 한국어로 촘촘히 풀어쓴 상세 리뷰다.
+이 글은 Szegedy et al.(2014)의 _Going Deeper with Convolutions_ 을 원 논문의 전개(문제 제기 → 관련 연구 → 동기/설계 원칙 → Inception 모듈 설계 → GoogLeNet 구체화 → 학습 방법론 → ILSVRC 분류/검출 결과 → 결론)를 가능한 한 그대로 따라가며 촘촘히 풀어쓴 상세 리뷰다.
 
 이 논문에서 제안하는 아키텍처는 Inception이고, ILSVRC14 제출에 사용한 22-layer 구체 인스턴스가 GoogLeNet이다. 즉 GoogLeNet은 **Inception 아키텍처의 한 구현(incarnation)** 이다. 논문이 강조하는 핵심은 단지 더 깊게 만들었다가 아니라, **동일하거나 제한된 연산 예산(computational budget) 안에서 depth/width를 늘릴 수 있도록, 네트워크 내부의 계산 자원을 더 효율적으로 쓰는 구조**를 만들었다는 점이다.
 
@@ -14,9 +14,9 @@
 
 ---
 
-## 1️⃣ Introduction
+## 1️⃣ 배경 상황
 
-### 🔹 최근 3년의 급격한 진전과, 아이디어/아키텍처의 중요성
+### 🔹 최근 3년의 급격한 진전과 아이디어/아키텍처의 중요성
 논문은 지난 몇 년간(2012~2014) 이미지 인식/검출 성능이 급격히 향상된 배경을 짚는다. 중요한 주장 하나는 이 진전이 단지 더 좋은 하드웨어/더 큰 데이터/더 큰 모델 때문만은 아니라는 점이다. ILSVRC14에서 상위권 팀들 역시 detection을 위해 새로운 외부 데이터 소스를 추가로 쓰지 않았고, 주된 개선은 **아이디어, 알고리즘, 네트워크 아키텍처의 발전**에서 나왔다고 말한다.
 
 이 문맥에서 GoogLeNet은 두 가지 축을 동시에 잡는다.
@@ -26,7 +26,7 @@
 
 특히 모바일/임베디드 환경에서 메모리/전력 제약이 중요해지고 있으므로, 알고리즘 효율이 점점 더 중요한 설계 목표가 된다고 강조한다.
 
-### 🔸 논문이 선언하는 목표: 고정된 예산에서 더 깊고/넓게
+### 🔸 논문이 설정한 목표: 고정된 자원에서 더 깊고/넓게
 논문은 대부분의 실험에서 inference 시 1.5 billion multiply-adds 수준의 연산 예산을 유지하려고 했다고 명시한다. 여기서 multiply-add는 흔히 MAC(Multiply–Accumulate)처럼 생각하면 되고, conv 연산에서 대략
 $$
 H \times W \times C_{out} \times K_h \times K_w \times C_{in}
@@ -43,10 +43,10 @@ $$
 
 ---
 
-## 2️⃣ Related Work
+## 2️⃣ 관련 연구
 
-### 🔹 고전적 CNN의 표준 구조와 더 크게 트렌드
-논문은 LeNet-5[10] 이후 CNN이 보통 따르는 구조를 먼저 요약한다.
+### 🔹 고전적 CNN의 표준 구조
+논문은 LeNet-5 이후 CNN이 보통 따르는 구조를 먼저 요약한다.
 
 - (여러) convolution layer 스택 (옵션: contrast normalization, max-pooling)
 - 그 뒤에 fully-connected layer들
@@ -61,23 +61,20 @@ $$
 
 또한 max-pooling이 공간 정보를 잃는다는 우려가 있음에도, 동일한 CNN 구조가 localization/detection/pose 추정 등으로 확장되어 성공적으로 쓰였다는 점을 들며, CNN 표현이 다양한 과제에 강력하다는 배경을 깔아준다.
 
-### 🔸 Network-in-Network, R-CNN, 그리고 이 논문이 가져온 핵심 조각들
+### 🔸 Network-in-Network와 이 논문이 가져온 핵심 조각들
 이 섹션에서 논문이 직접 연결하는 실마리들은 다음이다.
 
-1) **Network-in-Network (Lin et al.)**  
+1. **Network-in-Network (Lin et al.)**  
 1×1 conv를 추가해 representational power를 늘리는 접근이다. 논문은 여기서 한 발 더 나아가, 1×1 conv를 표현력 증가뿐 아니라 **차원 축소(dimension reduction)** 로써 계산 병목 제거 목적에 매우 적극적으로 사용한다고 밝힌다. 즉 이 논문에서 1×1 conv는 중요한 모듈이다.
 
-2) **R-CNN (Girshick et al.)**  
-검출에서 큰 성능 향상은 딥 네트워크 단독이 아니라 딥 + 고전 CV(지역 제안)의 결합에서 나왔다고 말한다. GoogLeNet의 detection 제출도 R-CNN류 파이프라인을 따르되, region proposal 단계/분류기 단계 둘 다를 개선했다고 설명한다.
-
-3) **멀티스케일 처리(Serre et al.)**  
+2. **멀티스케일 처리(Serre et al.)**  
 고정 Gabor 필터를 여러 크기로 두는 방식과 유사하게, Inception은 여러 스케일의 conv를 병렬로 두어 멀티스케일을 다루지만, Inception에서는 필터가 학습되고, 모듈이 반복되어 22-layer 수준의 깊은 모델이 된다는 점이 차별점이다.
 
 이 섹션의 결론은 기존 아이디어(1×1 conv, 멀티스케일, 검출 파이프라인)를 가져오되, 계산 효율 관점에서 재조합해 더 깊고 넓은 네트워크를 만들겠다는 방향으로 정리할 수 있다.
 
 ---
 
-## 3️⃣ Motivation and High Level Considerations
+## 3️⃣ 상위 레벨 고려사항들
 
 ### 🔹 단순한 확장(더 깊게/더 넓게)의 두 가지 문제
 논문은 성능을 올리는 가장 직관적인 방법으로 네트워크를 키우는 것을 먼저 말한다.
@@ -87,27 +84,29 @@ $$
 
 하지만 이 단순 해법에는 두 가지 큰 단점이 있다고 한다.
 
-1) **파라미터 증가 → 과적합 위험 증가**  
+1. **파라미터 증가 → 과적합 위험 증가**  
 데이터가 무한정 많지 않다면, 큰 모델은 더 쉽게 과적합될 수 있다. 특히 ImageNet처럼 fine-grained 분류에서는 정교한 라벨링이 필요하므로 고품질 데이터셋 제작 비용 자체가 병목이 될 수 있다고 말한다. 이를 보여주기 위해 서로 시각적으로 가까운 두 클래스를 예로 든다.
 
-(Fig. 1: ILSVRC 1000 클래스 중 시각적으로 유사하지만 다른 두 클래스 예시)
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/8e4c48bc-370a-4f75-811f-c6b48bd74b57/image.png" width="50%">
+</p>
 
-2) **연산량 증가**  
+2. **연산량 증가**  
 예를 들어 conv 레이어 두 개가 연속될 때, 두 레이어의 필터 수를 동일 비율로 늘리면 (채널 곱으로 인해) 연산량이 대략 **제곱 형태로 증가**한다. 게다가 많은 가중치가 0에 가깝게 낭비된다면, 제한된 예산에서 계산을 비효율적으로 쓰는 셈이 된다.
 
 즉 논문이 말하는 더 크게의 문제는 단순히 느리다/메모리 크다를 넘어, 제한된 예산을 성능 향상에 가장 잘 쓰는 구조가 무엇인가라는 자원 배분 문제로 넘어간다.
 
-### 🔸 희소 구조의 이상과, 조밀 블록으로의 현실적 근사
+### 🔸 Sparse 구조의 이상과, Dense 블록으로의 현실적 근사
 논문은 이상적으로는 fully-connected 대신 희소(sparse) 연결을 네트워크 내부에도 더 적극적으로 도입하는 것이 두 문제(과적합, 연산 낭비)를 동시에 해결할 근본 해법이라고 본다.
 
-여기서 Arora et al.[2]를 핵심 이론적 근거로 끌어온다. 논문이 요약하는 [2]의 메시지는 대략 다음이다.
+여기서 Arora et al.를 핵심 이론적 근거로 끌어온다. 논문이 요약하는 메시지는 대략 다음이다.
 
 - 데이터 분포가 큰데 희소한 deep net으로 표현될 수 있다면,
 - 각 레이어의 activation 간 상관(correlation) 통계를 보고,
 - 높은 상관을 갖는 뉴런들을 클러스터링하면,
 - 다음 레이어의 토폴로지를 layer-by-layer로 구성할 수 있다.
 
-이 이야기는 Hebbian 원리(같이 발화하는 뉴런은 같이 연결된다)와도 직관적으로 맞닿아 있다고 말한다.
+이 이야기는 _Hebbian 원리_ (같이 발화하는 뉴런은 같이 연결된다)와도 직관적으로 맞닿아 있다고 말한다.
 
 하지만 문제는 당시 하드웨어/소프트웨어 인프라가 비균일 희소 데이터 구조에서의 수치 연산에 매우 비효율적이라는 점이다. 희소 연산의 산술량이 100× 줄어도, 메모리 접근/캐시 미스/인덱싱 오버헤드가 지배적이라 실제 속도가 잘 안 나올 수 있다는 것이다.
 
@@ -115,9 +114,7 @@ $$
 
 ---
 
-## 4️⃣ Architectural Details
-
-### 🔹 Inception 모듈의 핵심 아이디어: 로컬 희소 구조를 병렬 경로로 덮기
+### 🔹 Inception 모듈의 핵심 아이디어
 이 섹션에서 논문은 translation invariance를 전제로, 네트워크가 convolutional building block들로 구성된다고 본다. 핵심 질문은 최적의 로컬 희소 구조를 어떻게 찾고, 이를 공간적으로 반복할 것인가다.
 
 논문은 상관 기반 클러스터링 직관을 가져와 다음 같은 그림을 그린다.
@@ -129,10 +126,12 @@ $$
 
 그래서 한 stage에서 서로 다른 receptive field를 가진 연산들을 **병렬로** 두고, 그 출력 채널들을 depth 방향으로 concat해서 다음 stage의 입력으로 넘기는 구조를 제안한다. 여기에 pooling 경로도 병렬로 추가하면 도움이 될 것이라고 말한다.
 
-(Fig. 2(a): Inception 모듈의 나이브(차원축소 없는) 병렬 구조)
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/be191fb6-6990-4096-aa3b-7ab6cfd8da40/image.png" width="70%">
+</p>
 
-### 🔸 차원 축소(dimension reduction)가 필요한 이유와, 1×1 conv의 이중 역할
-하지만 (Fig. 2(a)) 같은 나이브 구조에는 큰 문제가 있다.
+### 🔸 차원 축소(dimension reduction)가 필요한 이유
+하지만 (Fig. 2(a)) 같은 naive 구조에는 큰 문제가 있다.
 
 - 5×5 conv는 매우 비싸다.
 - pooling 경로를 concat하면 출력 채널 수가 계속 늘어나 stage마다 폭이 커질 수 있다.
@@ -149,8 +148,6 @@ $$
 
 이 결과가 (Fig. 2(b))이며, 오늘날 우리가 흔히 떠올리는 Inception 모듈의 표준 형태다.
 
-(Fig. 2(b): 1×1 conv로 reduction을 수행한 Inception 모듈)
-
 #### Inception 모듈의 수식적 형태(채널 concat 관점)
 입력 feature map을 $x \in \mathbb{R}^{N \times C \times H \times W}$라 하자(배치 $N$, 채널 $C$). Inception 모듈은 서로 다른 변환 $f_1,f_2,f_3,f_4$를 병렬로 적용하고 채널 축으로 이어붙인다.
 
@@ -160,10 +157,10 @@ $$
 
 각 $f_i$는 (1×1), (1×1→3×3), (1×1→5×5), (pool→1×1) 같은 연산 그래프로 구성된다. 이때 reduction이 들어가면 (1×1)에서 출력 채널 수를 줄여 $C \to C'$로 만든 뒤 큰 커널을 적용하므로, 연산량이 크게 줄어든다.
 
-#### 왜 이런 형태가 필요한가(직관)
+#### 왜 이런 형태가 필요한가
 Inception 모듈이 하는 일은 사실상 같은 입력에서 **서로 다른 receptive field로 정보를 뽑아** 동시에 제공하고, 다음 stage가 그들 위에서 더 추상적인 특징을 만든다는 것이다. 이전 CNN들이 보통 한 stage에 한 종류의 커널을 쓰던 것과 달리, Inception은 stage 내부에서 멀티스케일을 결합한다.
 
-### 🔹 Inception 네트워크의 전체 형태와, 낮은 레벨은 전통적 conv로 시작하는 이유
+### 🔹 Inception 네트워크의 전체 형태
 논문은 Inception 모듈을 여러 번 쌓고, 중간중간 stride 2 max-pooling으로 해상도를 반으로 줄이는 구조를 기본으로 한다고 말한다. 다만 기술적 이유(훈련 시 메모리 효율)로 Inception 모듈을 아주 초반부터 쓰지 않고, **낮은 레벨은 전통적인 conv 스택으로 시작**하는 것이 유리해 보였다고 설명한다. 이는 원리적 필연이 아니라 당시 구현 인프라의 제약에 가까운 선택이라는 점도 덧붙인다.
 
 ---
@@ -173,11 +170,11 @@ Inception 모듈이 하는 일은 사실상 같은 입력에서 **서로 다른 
 ### 🔹 GoogLeNet이라는 이름과, 22-layer 인스턴스의 위치
 논문은 Inception이 아키텍처 패밀리이고, 그중 ILSVRC14 제출에서 쓴 구체 인스턴스를 GoogLeNet이라고 부른다고 명확히 한다. 이름은 LeNet-5에 대한 오마주라고 말한다.
 
-또한 (Table 1)에 가장 성공한 particular instance(GoogLeNet)를 제시하며, 앙상블 7개 중 6개 모델은 **동일한 토폴로지**(sampling 방법만 다름)를 썼다고 한다.
+또한 아래 표에 가장 성공한 particular instance(GoogLeNet)를 제시하며, 앙상블 7개 중 6개 모델은 **동일한 토폴로지**(sampling 방법만 다름)를 썼다고 한다.
 
-(Table 1: GoogLeNet의 구체 레이어/모듈 구성 요약)
-
-이 논문 텍스트화 결과에서는 (Table 1)의 표 자체가 깔끔하게 복원되지 않지만, 표가 설명하는 축은 명확하다.
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/32187de7-5a1d-479c-aaa9-b11b0929d595/image.png" width="70%">
+</p>
 
 - 각 Inception 모듈에서
   - `#1×1`
@@ -188,22 +185,24 @@ Inception 모듈이 하는 일은 사실상 같은 입력에서 **서로 다른 
 - 모든 conv는 ReLU를 쓴다.
 - 입력은 224×224 RGB, mean subtraction을 한다.
 
-아키텍처 전체 흐름은 (Fig. 3)에서 bells and whistles(보조 분류기 포함)까지 포함해 도식화된다.
+아키텍처 전체 흐름은 아래 도표에서 보조 분류기까지 포함해 도식화된다.
 
-(Fig. 3: GoogLeNet 전체 네트워크 도식(보조 분류기 포함))
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/4a799903-4790-46a0-8657-32d46f5a074e/image.png" width="80%">
+</p>
 
-### 🔸 평균풀링 기반 분류기와 dropout의 역할
-논문은 Network-in-Network[12]를 따라 classifier 앞에 average pooling을 두는 것이 도움이 된다고 말한다. 다만 GoogLeNet 구현은 average pooling 뒤에 추가 linear layer를 하나 두는데, 이는 다른 라벨 셋으로 fine-tuning 할 때 편의성 때문이며 성능에 큰 영향을 주진 않을 것으로 본다고 말한다.
+### 🔸 Average Pooling 기반 분류기와 dropout의 역할
+논문은 Network-in-Network를 따라 classifier 앞에 average pooling을 두는 것이 도움이 된다고 말한다. 다만 GoogLeNet 구현은 average pooling 뒤에 추가 linear layer를 하나 두는데, 이는 다른 label set으로 fine-tuning 할 때 편의성 때문이며 성능에 큰 영향을 주진 않을 것으로 본다고 말한다.
 
-흥미로운 정량 언급도 있다.
+흥미로운 정량적인 수치 언급도 있다.
 
 - fully-connected를 average pooling으로 바꾸면 top-1 accuracy가 약 0.6% 개선되었다.
 - 그렇다고 dropout이 불필요해지는 것은 아니며, FC를 제거해도 dropout은 여전히 중요했다.
 
-즉 GoogLeNet은 거대한 FC 스택을 줄이고, 글로벌 평균풀링 성격을 강화하면서도, regularization(dropout)을 유지하는 설계를 택했다.
+즉 GoogLeNet은 거대한 FC 스택을 줄이고, 글로벌 평균 pooling 성격을 강화하면서도, regularization(dropout)을 유지하는 설계를 택했다.
 
-### 🔹 보조 분류기(auxiliary classifier): 왜 넣고, 어떻게 학습에 쓰는가
-22-layer 깊이에서 gradient가 잘 전파될지(backprop signal) 우려가 있었고, 논문은 중간 레이어의 특징도 충분히 discriminative할 것이라는 관찰에 기대어, 중간에 보조 분류기를 달아 학습을 돕는 아이디어를 사용한다.
+### 🔹 보조 분류기(auxiliary classifier)
+22-layer 깊이에서 gradient가 잘 전파될지(backprop signal) 우려가 있었고, 논문은 중간 레이어의 특징도 충분히 discriminative할 것이라는 관찰에 기대어, 중간에 **보조 분류기**를 달아 학습을 돕는 아이디어를 사용한다.
 
 핵심 목적은 세 가지다.
 
@@ -228,14 +227,14 @@ $$
 \mathcal{L} = \mathcal{L}_{main} + 0.3\,\mathcal{L}_{aux1} + 0.3\,\mathcal{L}_{aux2}.
 $$
 
-이 식의 직관은 보조 분류기를 메인 목적(정답 분류)을 바꾸지 않는 선에서, 학습을 돕는 정규화/gradient 보조 신호로 쓰자는 것이다. 가중치 0.3은 보조 손실이 메인 손실을 지배하지 않도록 조절하는 장치다.
+이 식의 통찰은 보조 분류기를 메인 목적(정답 분류)을 바꾸지 않는 선에서, 학습을 돕는 **정규화/gradient 보조 신호**로 쓰자는 것이다. 가중치 $0.3$은 보조 손실이 메인 손실을 지배하지 않도록 조절하는 장치다.
 
 ---
 
-## 6️⃣ Training Methodology
+## 6️⃣ 학습 방법론
 
 ### 🔹 DistBelief, 비동기 SGD, 모멘텀, Polyak averaging
-논문은 학습을 DistBelief[4] 분산 학습 시스템으로 수행했다고 한다. CPU 기반 구현만 썼지만, 고급 GPU 몇 개면 1주 이내에 수렴시킬 수 있을 것이라고 거친 추정을 말하며, 주된 제한은 메모리 사용량이라고 덧붙인다.
+논문은 학습을 **DistBelief** 분산 학습 시스템으로 수행했다고 한다. CPU 기반 구현만 썼지만, 고급 GPU 몇 개면 1주 이내에 수렴시킬 수 있을 것이라 추정하며, 주된 제한은 메모리 사용량이라고 덧붙인다.
 
 학습 최적화는 다음처럼 요약된다.
 
@@ -250,9 +249,9 @@ w \leftarrow w + v_t
 $$
 로 이해하면 되고, 여기서 $\mu=0.9$다. 비동기 SGD는 worker들이 서로 다른 배치로 업데이트를 병렬로 수행하는 형태로 떠올리면 된다.
 
-Polyak averaging은 학습 과정에서 여러 시점의 가중치를 평균해 더 안정적인 모델을 얻는 방법으로 이해할 수 있다.
+**Polyak averaging**은 학습 과정에서 여러 시점의 가중치를 평균해 더 안정적인 모델을 얻는 방법으로 이해할 수 있다.
 
-### 🔸 데이터 샘플링/증강: 확정적인 레시피가 어렵다
+### 🔸 데이터 샘플링 및 증강
 논문은 흥미롭게도 경쟁까지 몇 달 동안 이미지 샘플링 방법이 계속 바뀌었고, 이미 수렴한 모델을 다른 옵션으로 재학습(fine-tune)하기도 했으며, dropout/lr 같은 하이퍼파라미터도 함께 바뀌었다고 말한다. 그래서 가장 효과적인 단 하나의 학습법을 딱 잘라 말하기 어렵다고 솔직하게 적는다.
 
 그럼에도 경쟁 후 검증된 레시피로 다음을 제시한다.
@@ -260,12 +259,12 @@ Polyak averaging은 학습 과정에서 여러 시점의 가중치를 평균해 
 - 이미지에서 다양한 크기의 패치를 샘플링하되,
   - 패치 면적이 전체 이미지의 8%~100% 사이에서 균등 분포
   - 종횡비(aspect ratio)는 3/4~4/3 사이에서 랜덤
-- Andrew Howard[8]의 photometric distortions가 과적합 완화에 유용
-- 리사이즈 시 bilinear/area/nearest/cubic을 랜덤으로 섞는 interpolation도 사용(다만 효과를 확정적으로 말하긴 어렵다고 함)
+- Andrew Howard의 photometric distortions가 과적합 완화에 유용
+- Resize 시 bilinear/area/nearest/cubic을 랜덤으로 섞는 interpolation도 사용(다만 효과를 확정적으로 말하긴 어렵다고 함)
 
 이 문단은 학습 레시피가 성능에 매우 중요하지만, 실전에서는 여러 선택이 얽혀 있어 clean한 ablation이 어렵다는 현실을 보여준다.
 
-#### 학습 절차 의사코드(논문 설명 기반)
+#### 학습 절차 의사코드
 논문 내용을 그대로 절차로 정리하면 다음과 같다.
 
 ```text
@@ -293,7 +292,7 @@ Output:
 
 ---
 
-## 7️⃣ ILSVRC 2014 Classification Challenge Setup and Results
+## 7️⃣ ILSVRC 2014 분류 문제 설정과 결과
 
 ### 🔹 태스크/데이터/평가 지표: top-5 error가 공식 랭킹 기준
 논문은 ILSVRC14 classification을 다음처럼 요약한다.
@@ -305,22 +304,22 @@ Output:
 
 top-5 error는 정답이 상위 5개 예측 안에 없을 비율이다. 즉 GT가 top-5에 있으면 정답으로 친다.
 
-### 🔸 테스트 시점 기법: 앙상블 + 공격적 멀티크롭 + 단순 평균
+### 🔸 테스트 시점 기법: 앙상블 + 멀티크롭 + 단순 평균
 논문은 외부 데이터 없이 참가했다고 강조한다. 그 위에서 성능을 끌어올리기 위해 테스트 시점에 다음을 수행했다고 말한다.
 
-1) **동일 토폴로지의 GoogLeNet 7개를 독립 학습**하고 앙상블  
+1. **동일 토폴로지의 GoogLeNet 7개를 독립 학습**하고 앙상블  
    - 1개는 더 넓은(wider) 버전
    - initialization/learning rate 정책은 동일, sampling/입력 순서만 차이  
 
-2) **Krizehvsky et al.보다 더 공격적인 cropping**  
-   - 짧은 변을 {256, 288, 320, 352}로 리사이즈(4 scales)
+2. **Krizehvsky et al.보다 더 공격적인 cropping**  
+   - 짧은 변을 `{256, 288, 320, 352}`로 리사이즈(4 scales)
    - 각 scale에서 좌/중/우(세로 이미지면 상/중/하) square를 선택(3 squares)
    - 각 square에서 4 corners + center 224×224 crop(5 crops)
    - 그리고 그 square 자체를 224×224로 리사이즈한 것을 추가(1 crop)
    - 그리고 좌우 반전(2)  
    → 총 crops: $4 \times 3 \times 6 \times 2 = 144$
 
-3) **softmax 확률을 crops와 모델들에 대해 평균**  
+3. **softmax 확률을 crops와 모델들에 대해 평균**  
    - max pooling 등 대안을 val에서 비교했지만 평균이 더 좋았다고 말한다.
 
 이 절차를 알고리즘으로 정리하면 아래처럼 쓸 수 있다.
@@ -342,118 +341,55 @@ Input: image I, ensemble models {M_j}
 Output: predicted class ranking from p
 ```
 
-### 🔹 정량 결과: top-5 error 6.67%와, crops/모델 수의 트레이드오프
-논문은 최종 제출 결과로 val/test 모두 top-5 error 6.67%를 얻어 1위를 했다고 말한다. 또한 2012 SuperVision 대비 상대적으로 56.5% error 감소라고 강조한다.
+### 🔹 정량 결과: Top-5 Error 6.67%와 Crops/모델 수의 Trade-Off
+논문은 최종 제출 결과로 val/test 모두 **top-5 error 6.67%** 를 얻어 1위를 했다고 말한다. 또한 2012 SuperVision 대비 상대적으로 56.5% error 감소라고 강조한다.
 
-여기서 경쟁 전체 결과 비교가 (Table 2)로 제시된다.
+여기서 경쟁 전체 결과 비교가 다음 표로 제시된다.
 
-(Table 2: ILSVRC classification 상위권 성능 및 외부데이터 사용 여부)
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/9970011b-fd33-4aa9-a3c7-c21f8213a3c5/image.png" width="50%">
+</p>
 
-그리고 crops/모델 수에 따른 성능/비용 변화가 (Table 3)으로 제시된다. 텍스트 추출본에서 표가 완전히 정렬되진 않지만, 핵심 메시지는 다음이다.
+그리고 crops/모델 수에 따른 성능/비용 변화가 아래 표로 제시된다. 텍스트 추출본에서 표가 완전히 정렬되진 않지만, 핵심 메시지는 다음이다.
 
 - crop 수를 10 → 144로 늘리면 성능이 좋아진다.
 - 1개 모델보다 7개 앙상블이 더 좋다.
 - 하지만 crop 수를 계속 늘릴수록 이득이 점점 작아진다(marginal)고 언급한다.
 
-(Table 3: 모델 수/크롭 수/비용 대비 top-5 error 변화)
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/64947975-0f4c-48cb-8995-3eecb2aa2bd9/image.png" width="50%">
+</p>
 
-이 구간의 해석을 한 문장으로 요약하면: **GoogLeNet 자체 아키텍처가 강한 것은 기본이고, ILSVRC 순위 수준의 최종 성능은 test-time computation(멀티크롭/앙상블)과 강하게 결합되어 있다**.
-
----
-
-## 8️⃣ ILSVRC 2014 Detection Challenge Setup and Results
-
-### 🔹 태스크 정의: 200 클래스, IoU(Jaccard) ≥ 0.5, mAP
-검출(detection) 태스크는 200 클래스에서 객체 bounding box를 예측하는 문제다. 예측이 정답이려면
-
-- 클래스가 GT와 일치하고
-- 박스가 충분히 겹쳐야 한다.
-
-논문은 겹침 기준을 Jaccard index로 쓰며, 이는 IoU(Intersection over Union)와 동일한 개념이다.
-
-GT 박스를 $B$, 예측 박스를 $\hat{B}$라 할 때,
-$$
-\operatorname{IoU}(B,\hat{B}) = \frac{|B \cap \hat{B}|}{|B \cup \hat{B}|}.
-$$
-정답 판정은 $\operatorname{IoU} \ge 0.5$다.
-
-성능 지표는 mAP(mean average precision)이다.
-
-### 🔸 R-CNN류 파이프라인 + Inception 분류기 + 제안 단계 개선
-논문은 GoogLeNet의 detection 접근이 R-CNN[6]과 유사하다고 말한다.
-
-1) region proposal
-2) 각 proposal을 CNN으로 분류
-
-여기서 제안 단계는 Selective Search[20]에 multi-box[5] 예측을 결합해 recall을 올린다. 또한 false positive를 줄이기 위해 superpixel 크기를 2×로 키워 selective search proposal 수를 절반으로 줄이고, 대신 multi-box 기반 proposal 200개를 다시 더해, Girshick et al. 대비 proposal 수는 약 60% 수준으로 줄이면서 coverage(recall)를 92% → 93%로 올렸다고 말한다.
-
-그리고 region 분류에는 6개의 ConvNet 앙상블을 사용해 single-model 40% → ensemble 43.9%로 올렸다고 보고한다. (논문은 바운딩 박스 회귀(bounding box regression)는 시간 부족으로 사용하지 못했다고 명시한다.)
-
-정량 결과는 (Table 4)와 (Table 5)로 제시된다.
-
-(Table 4: ILSVRC detection 팀별 mAP 및 외부 데이터/앙상블 여부)
-
-(Table 5: single model detection 성능 비교(컨텍스트 모델/박스 회귀 여부 포함))
-
-이 섹션의 결론은 컨텍스트나 박스 회귀 없이도 Inception 표현이 강력해서 detection에서도 경쟁력이 매우 높았다는 점으로 연결되고, 이는 결론 섹션에서 다시 강조된다.
+이 구간의 해석을 한 문장으로 요약하면 **GoogLeNet 자체 아키텍처가 강한 것은 기본이고, ILSVRC 순위 수준의 최종 성능은 test-time computation(멀티크롭/앙상블)과 강하게 결합되어 있다**.
 
 ---
 
-## 9️⃣ Conclusions
-
-### 🔹 결론의 핵심: 희소 구조를 조밀 블록으로 근사
-논문 결론은 메시지가 명확하다.
-
-- 기대되는 최적 희소 구조(expected optimal sparse structure)를,
-- 당장 쓰기 쉬운 조밀 블록(dense building blocks)의 조합으로 근사하는 방법이,
-- 컴퓨터 비전용 네트워크를 개선하는 데 유효했다는 강한 증거를 제공한다고 말한다.
-
-그리고 이 방법의 장점은 연산 요구량을 크게 늘리지 않고도 품질을 크게 올릴 수 있다는 점이라고 정리한다. 또한 detection에서 컨텍스트/박스 회귀 없이도 경쟁력이 있었던 점을 근거로 Inception 표현의 강점을 다시 확인한다.
-
-마지막으로 향후 과제로는 Arora et al.[2] 같은 원리에 기반해 더 희소하고 정제된 구조를 자동으로 찾는 방향을 제안한다. 즉 이 논문은 수작업으로 설계한 조밀 근사를 제시하면서도, 궁극적으로는 자동 구조 탐색/희소성으로 가야 한다는 문제의식을 남긴다.
-
----
-
-## 💡 해당 논문의 시사점과 한계 혹은 의의
+## 💡 해당 논문의 시사점과 한계
 
 이 논문의 의의는 Inception 모듈이라는 블록을 만든 것 이상으로, **제약(연산 예산)을 명시한 상태에서 아키텍처를 설계하는 사고 방식**을 대중화했다는 점에 있다.
 
 - 희소 구조가 이상적이라는 이론적 동기와,
 - 희소 연산이 당시엔 느리다는 시스템 현실 사이를 연결해서,
-- 조밀 블록의 병렬 결합 + 1×1 reduction이라는 설계로 타협점을 만들었다.
+- Dense 블록의 병렬 결합 + 1×1 reduction이라는 설계로 타협점을 만들었다.
 
-또한 Inception 모듈은 한 stage에서 멀티스케일을 병렬로 처리하고 concat한다는 관점으로 이후 수많은 변형(v2/v3/v4, Xception, Inception-ResNet 등)으로 확장된다. 즉 GoogLeNet은 단일 모델이라기보다 **아키텍처 패밀리의 출발점**이다.
+또한 Inception 모듈은 한 stage에서 멀티스케일을 병렬로 처리하고 concatenate한다는 관점으로 이후 수많은 변형(v2/v3/v4, Xception, Inception-ResNet 등)으로 확장된다. 즉 GoogLeNet은 단일 모델이라기보다 **아키텍처 패밀리의 출발점**이다.
 
-한계도 있다.
+**한계**도 있다.
 
 - 논문 스스로도 인정하듯, 설계 원칙(Arora/Hebbian/멀티스케일)이 정말로 최적이어서 성능이 나온 것인지, 혹은 다른 요인이 더 컸는지에 대한 엄밀한 검증은 부족하다.
-- ILSVRC 순위 수준의 성능은 테스트 시점에 144 crops × 여러 모델 앙상블 같은 큰 계산을 쓰는 프로토콜과 결합되어 있다. 즉 단일 패스 inference 관점에서의 비용-성능 곡선은 별도 논의가 필요하다.
+- ILSVRC 순위 수준의 성능은 테스트 시점에 144 crops × 여러 모델 앙상블 같은 큰 계산을 쓰는 프로토콜과 결합되어 있다. 즉 _단일 패스 inference_ 관점에서의 비용-성능 곡선은 별도 논의가 필요하다.
 
 그럼에도 이 논문은 효율을 고려한 깊은 네트워크 설계라는 주제를 강하게 제시했고, 이후의 아키텍처 연구가 단순한 더 크고 더 깊게에서 벗어나 **자원 배분/모듈 설계/병렬 경로/차원 축소** 같은 키워드로 전개되게 만든 대표적 전환점이라고 볼 수 있다.
 
 ---
 
-## 👨🏻‍💻 InceptionNet-v1 Lucid 구현
-논문 본문에서는 GoogLeNet이라는 이름을 쓰지만, Lucid 구현에서는 같은 모델을 `inception_v1`(InceptionNet-v1)로 지칭한다. 이 파트에서는 `lucid/models/imgclf/inception.py`를 직접 읽고, 논문(특히 Fig. 2, Fig. 3, Sect. 5의 GoogLeNet, 보조 분류기 설명)이 코드에서 어떻게 구현되는지 단계적으로 연결한다.
-
-주의: 이 파일은 Inception-v1 뿐 아니라 v3/v4 구현도 함께 포함한다. 논문과 직접 대응되는 것은 v1(GoogLeNet)이므로, 연결/해석의 중심은 `Inception_V1`과 그 구성요소(`_InceptionModule`, `_InceptionAux`, `inception_v1`)에 둔다. 다만 코드 생략 금지 규칙을 지키기 위해 파일 전체 코드를 블록으로 제시하고, v3/v4는 본 논문 범위 밖의 확장 구현으로 위치만 짚는다.
+## 👨🏻‍💻 InceptionNet-v1 구현하기
+논문 본문에서는 GoogLeNet이라는 이름을 쓰지만, [`lucid`](https://github.com/ChanLumerico/lucid) 구현에서는 같은 모델을 `inception_v1`(_InceptionNet-v1_)로 지칭한다. 이 파트에서는 [`inception.py`](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/inception.py)를 직접 읽고, 논문이 코드에서 어떻게 구현되는지 단계적으로 연결한다.
 
 ### 0️⃣ 사전 설정 및 준비 단계
 먼저 파일 상단은 import와 공개 심볼, 그리고 공통 베이스 클래스를 정의한다.
 
 ```python
-from typing import Optional, Tuple, override
-
-import lucid
-import lucid.nn as nn
-
-from lucid import register_model
-from lucid._tensor import Tensor
-
-
-__all__ = ["Inception", "inception_v1", "inception_v3", "inception_v4"]
-
-
 class Inception(nn.Module):
     def __init__(self, num_classes: int, use_aux: bool | None = True) -> None:
         super().__init__()
@@ -467,9 +403,7 @@ class Inception(nn.Module):
 
 여기서 핵심은 `Inception`이 `nn.Module`을 상속하는 공통 베이스이고, `num_classes`와 `use_aux`를 저장한다는 점이다. `forward`는 `Tuple[Tensor | None, ...]` 형태를 반환하는 것으로 타입을 넓혀두고, 실제 forward는 하위 클래스들이 구현한다.
 
-또한 `__all__`은 외부에 공개할 이름을 제한한다. v1/v3/v4 factory 함수가 공개 대상이며, 논문과 직접 대응은 `inception_v1`이다.
-
-### 1️⃣ (논문 Fig. 2) Inception 모듈 구현: `_InceptionModule`
+### 1️⃣ Inception 모듈 구현
 논문의 Inception 모듈(병렬 1×1 / 3×3 / 5×5 / pool 경로 + concat)은 `_InceptionModule`로 구현되어 있다.
 
 ```python
@@ -514,11 +448,11 @@ class _InceptionModule(nn.Module):
 - `branch3`: 1×1 reduction → 5×5 conv (Fig. 2(b)의 `#5×5 reduce` → 5×5)
 - `branch4`: 3×3 maxpool(stride 1, padding 1) → 1×1 projection (pool proj)
 
-그리고 마지막 `lucid.concatenate([...], axis=1)`이 논문에서 말하는 filter bank concatenation(DepthConcat)이다. 즉 Inception 모듈의 본질인 병렬 경로의 출력 채널을 쌓아서 다음 stage 입력으로 만든다가 코드에서 그대로 보인다.
+그리고 마지막 `lucid.concatenate([...], axis=1)`이 논문에서 말하는 **filter bank concatenation(DepthConcat)** 이다. 즉 Inception 모듈의 본질인 병렬 경로의 출력 채널을 쌓아서 다음 stage 입력으로 만든다가 코드에서 그대로 보인다.
 
-여기서 `nn.ConvBNReLU2d`는 (conv + batchnorm + ReLU) 계열의 블록으로 보이며, 논문 GoogLeNet(v1)은 LRN을 언급하는 반면(Lucid v1에서는 LRN이 없다), Lucid 구현은 BN을 포함한 conv 블록을 기본 단위로 사용한다는 점이 논문과 구현의 차이로 남는다.
+여기서 `nn.ConvBNReLU2d`는 (conv + batchnorm + ReLU) 계열의 블록이며, 논문 GoogLeNet은 LRN을 언급하는 반면, Lucid 구현은 BN을 포함한 conv 블록을 기본 단위로 사용한다는 점이 논문과 구현의 차이로 남는다.
 
-### 2️⃣ (논문 Sect. 5) 보조 분류기 구현: `_InceptionAux`
+### 2️⃣ 보조 분류기 구현
 논문에서 보조 분류기는 avgpool → 1×1 conv(128) → FC 1024 → dropout 0.7 → linear로 정의됐다. Lucid의 `_InceptionAux`는 이를 매우 직접적으로 구현한다.
 
 ```python
@@ -553,8 +487,8 @@ class _InceptionAux(nn.Module):
 
 또한 dropout이 `p=0.7`로 설정되어 있어 논문 bullet(70% dropped outputs)과 정합된다.
 
-### 3️⃣ (논문 Sect. 5, Fig. 3) GoogLeNet 본체 구현: `Inception_V1`
-이제 핵심인 v1(GoogLeNet) 전체 네트워크는 `Inception_V1`에 구현되어 있다.
+### 3️⃣ GoogLeNet 본체 구현
+이제 핵심인 Inception-v1(GoogLeNet) 전체 네트워크는 `Inception_V1`에 구현되어 있다.
 
 ```python
 class Inception_V1(Inception):
@@ -633,7 +567,7 @@ class Inception_V1(Inception):
 
 이 코드는 논문 GoogLeNet의 전통적 stem → Inception 스택 → 평균풀링+드롭아웃+선형 분류기 흐름을 매우 직접적으로 담고 있다.
 
-#### (1) stem: 7×7 conv + pooling + (1×1→3×3) + pooling
+#### stem: 7×7 conv + pooling + (1×1→3×3) + pooling
 논문 Table 1/Fig 3에서 앞단은 전통적 conv로 시작한다고 했고, Lucid도 동일하게 7×7 conv로 시작한다.
 
 - `conv1`: `7×7`, stride 2, padding 3 → 공간 해상도를 빠르게 줄이는 AlexNet류 stem
@@ -641,7 +575,7 @@ class Inception_V1(Inception):
 - `conv2`: `1×1` 후 `3×3`(padding 1) → 채널 재구성 + 지역 문맥
 - `maxpool2`: `3×3`, stride 2
 
-#### (2) Inception stage 3/4/5: 모듈 설정값이 곧 논문 표의 채널 수
+#### Inception stage 3/4/5: 모듈 설정값이 곧 논문 표의 채널 수
 `_InceptionModule(in_channels, out1, red3, out3, red5, out5, poolproj)`의 숫자들은 논문 Table 1에 나오는 각 경로의 채널 수를 코드로 직접 박아 넣은 것이다. 예를 들어 stage3 첫 모듈은
 
 - in=192
@@ -652,29 +586,30 @@ class Inception_V1(Inception):
 
 로 읽히며, 이는 차원 축소를 먼저 하고 큰 커널을 적용한다는 Fig. 2(b)의 원칙을 그대로 구현한 형태다.
 
-#### (3) 보조 분류기의 위치와 `self.training` 조건
+#### 보조 분류기의 위치와 `self.training` 조건
 논문은 보조 분류기를 (4a)와 (4d)에 붙인다고 했다. Lucid는
 
 - `incep_4a` 출력에서 `aux1`
 - `incep_4bcd`(4b,4c,4d의 묶음) 출력에서 `aux2`
 
-를 뽑는다. 즉 aux2는 4d 이후 출력에 해당한다고 볼 수 있다.
+를 뽑는다. 즉 `aux2`는 4d 이후 출력에 해당한다고 볼 수 있다.
 
 또한 중요한 구현 디테일이 있다.
 
 - 보조 분류기는 `self.training`일 때만 계산한다.
 - inference 시에는 자동으로 `None`이 된다.
 
-즉 논문에서 말한 inference time에 auxiliary network discard가 `if self.aux1 is not None and self.training:` 같은 조건으로 구현되어 있다.
+즉 논문에서 말한 inference time에 auxiliary network discard가 
+```python
+if self.aux1 is not None and self.training
+```
+같은 조건으로 구현되어 있다.
 
-#### (4) 출력: `(main, aux2, aux1)` 순서
+#### 출력: `(main, aux2, aux1)` 순서
 `forward`가 `return x, aux2, aux1` 형태로 반환한다는 점은 일반적인 `(main, aux1, aux2)` 순서와 다를 수 있다. 따라서 학습 코드에서 이 반환 순서를 어떻게 소비하는지(예: loss 가중치 0.3 적용)를 맞춰야 한다.
 
-### 4️⃣ Inception-v3/v4 구현은 어디에 있는가(본 논문 범위 밖)
-같은 파일에는 `Inception_V3`, `Inception_V4`도 구현되어 있다. 이들은 후속 논문/후속 설계(커널 factorization 등)에 해당하는 구현으로, 본 논문(GoogLeNet/Inception-v1)과는 직접 대응되지 않는다.
-
-### 5️⃣ 모델 레지스트리 등록: `@register_model` 팩토리 함수
-파일 하단의 팩토리 함수들은 Lucid의 모델 레지스트리에 각 Inception 변형을 등록한다. v1은 다음이다.
+### 5️⃣ 모델 레지스트리 등록
+파일 하단의 팩토리 함수들은 Lucid의 모델 레지스트리에 각 Inception 변형을 등록한다.
 
 ```python
 @register_model
@@ -686,13 +621,13 @@ def inception_v1(
     return Inception_V1(num_classes, use_aux, **kwargs)
 ```
 
-즉 Lucid에서 GoogLeNet을 쓰려면 `inception_v1()`을 호출하면 된다가 코드 레벨 결론이다.
+즉 Lucid에서 GoogLeNet을 쓰려면 `inception_v1()`을 호출하면 된다.
 
 ---
 
 ## ✅ 정리
 
-GoogLeNet 논문은 더 깊고 더 넓게를 무작정 밀어붙이는 대신, 희소 구조의 직관(상관 기반 클러스터링, Hebbian 원리)과 멀티스케일 처리 감각을 바탕으로, 조밀 블록 조합으로 희소 구조를 근사하는 Inception 모듈을 제안했다. 이 모듈은 1×1 reduction을 통해 3×3/5×5의 비용을 제어하면서, 병렬 경로의 출력을 concat해 다음 stage가 다양한 스케일의 정보를 동시에 활용할 수 있게 만든다. 실전에서는 보조 분류기(auxiliary classifier)로 학습 신호를 보강하고, ILSVRC에서는 멀티크롭/앙상블 같은 테스트 기법과 결합해 매우 낮은 top-5 error 및 높은 detection mAP를 달성했다. Lucid의 `lucid/models/imgclf/inception.py` 구현은 이 논문의 핵심 아이디어를 `_InceptionModule`(Fig. 2), `_InceptionAux`(보조 분류기), `Inception_V1`(Fig. 3의 전체 네트워크)로 직접 대응시키며, 논문에서 GoogLeNet이라 부른 모델을 `inception_v1`이라는 이름으로 제공한다는 점만 기억하면 논문-코드 연결이 깔끔해진다.
+**GoogLeNet** 논문은 _"더 깊고 더 넓게"_ 라는 슬로건을 무작정 밀어붙이는 대신, 희소 구조의 아이디어(상관 기반 클러스터링, Hebbian 원리)과 멀티스케일 처리를 바탕으로, dense 블록 조합으로 희소 구조를 근사하는 Inception 모듈을 제안했다. 이 모듈은 1×1 reduction을 통해 3×3/5×5의 비용을 제어하면서, 병렬 경로의 출력을 concat해 다음 stage가 다양한 스케일의 정보를 동시에 활용할 수 있게 만든다. 실전에서는 **보조 분류기(auxiliary classifier)** 로 학습 신호를 보강하고, ILSVRC에서는 멀티크롭/앙상블 같은 테스트 기법과 결합해 매우 낮은 top-5 error를 달성했다. Lucid의 구현은 이 논문의 핵심 아이디어를 `_InceptionModule`(Fig. 2), `_InceptionAux`(보조 분류기), `Inception_V1`(Fig. 3의 전체 네트워크)로 직접 대응시키며, 논문에서 GoogLeNet이라 부른 모델을 `inception_v1`이라는 이름으로 제공한다는 점만 기억하면 논문-코드 연결이 깔끔해진다.
 
 #### 📄 출처
-Szegedy, Christian, et al. "Going Deeper with Convolutions." *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 2015. arXiv:1409.4842.
+Szegedy, Christian, et al. "Going Deeper with Convolutions." *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 2015.

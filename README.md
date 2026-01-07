@@ -10,3 +10,4 @@ Paper reviews with their implementations using [`Lucid² 💎`](https://github.c
 2. [AlexNet — ImageNet Classification with Deep Convolutional Neural Networks](https://velog.io/@lumerico284/AlexNet-ImageNet-Classification-with-Deep-Convolutional-Neural-Networks) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/alex.py)
 3. [VGGNet — Very Deep Convolutional Networks for Large-Scale Image Recognition](https://velog.io/@lumerico284/VGGNet-Very-Deep-Convolutional-Networks-for-Large-Scale-Image-Recognition) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/vgg.py)
 4. [GoogLeNet — Going Deeper with Convolutions](papers/googlenet.md) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/inception.py)
+5. [Inception-v3 — Rethinking the Inception Architecture for Computer Vision](papers/inception_v3.md) [🔗](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/inception.py)
