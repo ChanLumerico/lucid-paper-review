@@ -319,9 +319,9 @@ Inputs:
   - smoothing epsilon
   - prior distribution u(k) (paper uses uniform)
   - ground-truth label y
-1) Construct softened label distribution:
+1. Construct softened label distribution:
      q'(k) = (1-epsilon)*1[k=y] + epsilon*u(k)
-2) Compute cross entropy:
+2. Compute cross entropy:
      L = -sum_k q'(k) * log p(k)
 Output: L
 ```
@@ -356,11 +356,11 @@ Output: L
 
 ```text
 Algorithm: Training setup (Sect. 8)
-1) Train for 100 epochs with batch size 32 on 50 GPU replicas
-2) Use RMSProp (decay=0.9, epsilon=1.0)
-3) Use lr=0.045 and decay it every 2 epochs by factor 0.94
-4) Apply gradient clipping with threshold 2.0
-5) Evaluate using running average of parameters
+1. Train for 100 epochs with batch size 32 on 50 GPU replicas
+2. Use RMSProp (decay=0.9, epsilon=1.0)
+3. Use lr=0.045 and decay it every 2 epochs by factor 0.94
+4. Apply gradient clipping with threshold 2.0
+5. Evaluate using running average of parameters
 ```
 
 ---

@@ -18,7 +18,7 @@ SKNet은 CNN의 receptive field(RF) 크기를 고정된 설계 값으로 두지 
 
 논문은 _생물학적 시각 피질(V1)_ 의 관찰을 언급하며, 뉴런의 RF 크기가 자극에 의해 조절되는 현상(고전적 RF, non-classical RF 등)을 소개한다. 여기서 핵심은 같은 영역의 뉴런들이 단지 서로 다른 RF 크기를 가질 뿐만 아니라, **한 뉴런의 유효 RF 크기 자체가 자극에 의해 변할 수 있다**는 관찰이다. 논문은 이 관찰을 CNN 설계로 옮길 때, 단순히 서로 다른 커널을 병렬로 두는 것(예: Inception의 3×3/5×5/7×7 branch)만으로는 충분하지 않을 수 있다고 주장한다.
 
-#### CRF/nCRF 직관을 CNN으로 옮겼을 때의 차별점
+#### CRF/NCRF 직관을 CNN으로 옮겼을 때의 차별점
 논문이 말하는 맥락을 단순화하면, 고전적 receptive field(CRF)는 뉴런이 **직접적으로 반응**하는 핵심 영역이고, 그 바깥의 자극(nCRF)은 **직접적인 자극이 아니더라도** 뉴런 반응을 조절할 수 있다는 관찰이다. 즉, 뉴런이 실제로 활용하는 문맥 범위는 고정된 원형/사각형 영역이라기보다, 자극에 의해 확장되거나 축소될 수 있는 유효 범위다.
 
 CNN 관점에서 보면, 3×3만을 반복해서 쌓는 구조는 각 레이어에서 직접적으로 보는 문맥을 제한한다. 반대로 큰 커널은 더 넓은 문맥을 한 번에 가져오지만 비용이 크다. SKNet은 이 둘을 양자택일로 두지 않고, **여러 문맥 스케일을 동시에 만들어 두고 그중 무엇을 얼마나 쓸지 선택**하도록 설계해, 유효 RF를 입력 조건부로 바꾸는 방향을 취한다.
@@ -95,7 +95,7 @@ SK convolution은 큰 커널(예: 5×5)을 직접 쓰면 비용이 커지기 때
 
 논문은 2-branch 케이스(커널 3과 5)를 기본 예로 설명하면서도, 동일한 원리를 더 많은 branch로 일반화할 수 있다고 언급한다.
 
-#### SK Convolution을 Mixture-of-Experts로 보기
+#### Mixture-Of-Experts 관점의 SK Convolution
 SK convolution은 형태적으로는 여러 **expert**(branch conv)가 있고, gating 네트워크가 그 expert들의 출력을 softmax로 섞는 구조다. 다만 일반적인 mixture-of-experts가 레이어 단위로 expert를 바꾸는 것과 달리, SK는 **동일한 위치의 feature를 서로 다른 스케일로 계산한 뒤** 그 스케일들을 섞는다. 이 관점에서 Select 단계는 스케일 축의 gating이고, 그 결과 유효 RF가 입력 조건부로 달라진다.
 
 #### 입력/출력 표기
@@ -121,7 +121,7 @@ Split 단계에서 논문은 기본적으로 커널 크기 3과 5를 가진 두 
 
 논문은 각 branch 변환이 단순한 convolution 하나가 아니라, **효율적인 grouped/depthwise convolution + BatchNorm + ReLU**의 순차 조합으로 이루어진다고 말한다. 즉, branch에서 multi-scale 정보를 만들되, 비용을 억제하기 위해 그룹/깊이별 구조를 적극적으로 사용한다.
 
-#### 큰 커널을 Dilation으로 근사하는 이유
+#### 큰 커널의 Dilation 근사 배경
 논문은 5×5 커널을 그대로 쓰는 대신, dilation 2의 3×3 convolution으로 근사해 비용을 줄인다. dilation 2의 3×3은 대략 5×5 RF를 커버할 수 있기 때문에, 큰 커널 branch의 목적(더 큰 문맥 수집)을 유지하면서도 연산량을 줄일 수 있다는 판단이다.
 
 이 점은 이후 ablation(Table 6)에서도 다시 나타난다. 논문은 3×3 + dilation 조합이 큰 커널을 직접 쓰는 것과 비교해 성능/복잡도 측면에서 유리할 수 있다는 경험적 결론을 언급한다.
@@ -177,7 +177,7 @@ $$
 
 정도로 잡을 수 있다(BN 파라미터까지 포함하면 약간 더 늘어난다). 만약 $d=C$라면 $\mathcal{O}(C^2)$가 되어 stage가 깊어질수록 비용이 커질 수 있다. Eq.(4)에서 $d\approx C/r$로 줄이면, 위 항은 대략 $3C(C/r)=3C^2/r$로 내려간다. 즉, $r$은 선택 네트워크의 비용을 직접적으로 낮추는 핵심 손잡이이며, 논문이 $L$로 하한을 둔 이유는 너무 작은 $d$가 선택 표현력을 망가뜨리는 것을 막기 위함으로 이해할 수 있다.
 
-#### Fuse가 branch를 합쳐서 $\mathbf{U}$를 만드는 이유를 다시 보면
+#### Fuse 단계에서 Branch 결합($\mathbf{U}$)의 필요성
 Eq.(1)의 $\mathbf{U}=\widetilde{\mathbf{U}}+\widehat{\mathbf{U}}$는 단순한 합이지만, 선택 메커니즘의 입력을 정의한다는 점에서 중요하다. 만약 gating이 한 branch만을 보고 결정되면, gating은 다른 branch의 존재를 반영하기 어렵다. 반대로 합을 통해 공통 요약을 만들면, gating은 두 branch의 활성 패턴을 모두 반영한 전역 신호에서 선택 가중치를 만들게 된다.
 
 또한 $\mathbf{U}$를 spatial pooling의 입력으로 쓰면, gating 네트워크는 공간 위치의 세부 패턴이 아니라 전역적으로 어떤 채널이 얼마나 활성화되었는지(그리고 두 스케일이 어떻게 합쳐졌는지)에 더 민감해진다. 이 설계는 선택 신호가 위치별 노이즈에 과도하게 흔들리기보다, 입력 스케일 변화 같은 전역적 변화에 따라 의미 있게 이동하도록 돕는 장치로 해석할 수 있다.
@@ -204,7 +204,7 @@ Eq.(6)은 두 branch의 출력을 단순히 선택(0 또는 1)하는 것이 아�
 
 이 점이 중요하다. hard routing(완전한 분기 선택)과 달리, soft attention은 **학습이 안정적이고 미분 가능**하며, 다양한 입력에서 점진적으로 스케일을 조절할 수 있다. 논문이 이후 분석에서 객체 크기가 커질수록 큰 커널 attention이 증가한다고 말할 때, 그것은 $0→1$의 급격한 변화가 아니라 가중치 분포의 이동으로 관찰된다(Fig. 3).
 
-#### 채널별 Attention을 두는 이유
+#### 채널별 Attention 채택 배경
 논문 수식은 $a_c,b_c$처럼 채널별로 **다른 분기 가중치**를 허용한다. 이는 직관적으로도 자연스럽다. 어떤 채널은 텍스처처럼 작은 스케일 정보가 중요하고, 어떤 채널은 객체의 큰 형태나 문맥이 중요할 수 있다. 같은 입력 이미지 안에서도 채널마다 담당하는 특징이 다르므로, 모든 채널이 동일한 스케일을 선택하도록 강제하는 것보다 채널별로 스케일 선택을 다르게 허용하는 편이 표현력 측면에서 유리할 수 있다.
 
 또한 채널별 attention은 네트워크가 스케일 선택을 더 세밀하게 조정할 수 있게 만든다. 예컨대 객체가 커질 때 모든 채널이 일괄적으로 큰 커널을 선택하는 것이 아니라, 그 객체를 설명하는 데 필요한 일부 채널들에서만 큰 커널 비중을 높이고, 나머지는 유지할 수도 있다. Fig. 3의 채널별 플롯은 이런 가능성을 시각적으로 뒷받침하는 장치로 이해할 수 있다.
@@ -257,7 +257,7 @@ return V
 1. 1×1 conv로 채널을 줄이거나(width를 조절)  
 2. SK convolution(Split–Fuse–Select)으로 multi-scale 공간 정보를 선택적으로 통합  
 3. 1×1 conv로 채널을 복원(expansion)  
-4. residual add + ReLU
+4. Residual add + ReLU
 
 논문은 이 구조를 Table 1에서 ResNeXt-50(32×4d), SENet-50, SKNet-50을 나란히 놓고 보여준다.
 
@@ -265,7 +265,7 @@ return V
   <img src="https://velog.velcdn.com/images/lumerico284/post/7e764e34-3be2-4039-abe0-44d3811a981c/image.png" width="70%">
 </p>
 
-#### Table 1에서 읽어야 하는 핵심 메시지
+#### Table 1의 핵심 메시지
 Table 1의 비교는 단지 구조 나열이 아니라, SE와 SK를 ResNeXt backbone 위에 올렸을 때의 비용 증가가 얼마나 되는지를 보여준다. 논문은 SKNet-50이 ResNeXt-50 대비 파라미터는 대략 10% 수준, 연산은 5% 수준만 증가한다고 설명한다. 즉, 단순히 모델을 크게 만든 것이 아니라, **비용 증가를 제한한 상태에서 선택 메커니즘을 추가**했다는 주장이다.
 
 #### Table 1의 복잡도 수치
@@ -291,7 +291,7 @@ Table 1의 비교는 단지 구조 나열이 아니라, SE와 SK를 ResNeXt back
 
 논문에서 대표 설정으로 SK$[2, 32, 16]$을 제시한다. $M=2$는 2-branch 케이스이고, $G=32$는 ResNeXt-50(32×4d)의 cardinality와 같은 맥락이며, $r=16$은 gating 네트워크의 비용을 줄이기 위한 값이다.
 
-#### $M=2$가 기본인 이유
+#### $M=2$ 기본 설정의 근거
 Branch를 늘리면 표현력은 늘 수 있지만, 비용도 증가한다. 논문은 Table 7에서 $M=2$와 $M=3$을 비교한 결과, $M=3$의 이득이 크지 않고 효율이 나빠질 수 있다고 보고한다. 그래서 성능-효율 트레이드오프 관점에서는 $M=2$가 기본 선택이 된다는 흐름으로 논증한다.
 
 #### $G$와 $r$의 역할
@@ -310,12 +310,12 @@ $r$은 Fuse 단계의 bottleneck 차원 $d$를 줄이는 reduction ratio다. 즉
 
 평가는 centre crop을 사용하며, $224×224$ 또는 $320×320$ crop 결과를 보고한다. 논문은 ImageNet 결과를 기본적으로 3회 평균이라고 언급한다.
 
-#### 큰 모델과 작은 모델에서 학습 레시피를 다르게 두는 이유
+#### 모델 규모에 따른 학습 레시피 분리 근거
 논문은 경량 모델(lightweight models)에서는 weight decay를 $4e-5$로 낮추고, 데이터 전처리에서 scale augmentation을 덜 aggressive하게 조정한다고 말한다. 그 이유를 논문은 underfitting/overfitting 관점에서 설명한다. 작은 모델은 파라미터/연산 예산이 작아서 overfitting보다 underfitting 문제가 더 두드러질 수 있고, 따라서 정규화를 과하게 걸면 학습이 더 어려워질 수 있다.
 
 이 디테일은 Table 4를 해석할 때 중요하다. 논문은 단순히 SE/SK 모듈을 붙였다는 사실뿐 아니라, 그 모듈이 실제로 경량 네트워크에서 유효하게 동작하도록 학습 레시피도 함께 맞췄음을 전제하고 있다.
 
-#### 224×와 320×를 같이 두는 이유
+#### 224× 및 320× 평가 병행 근거
 해상도를 키우면 성능이 오를 수 있지만 연산도 늘어난다. 논문은 $224×$와 $320×$ 결과를 나란히 두어, 구조적 차이(SK의 선택 메커니즘)가 작은 해상도에서도 유효한지, 큰 해상도에서도 유지되는지를 함께 보여주려 한다. 또한 SKNet이 단순히 해상도 증가에 기대는 것이 아니라, 선택 메커니즘 자체로 이득을 얻는지 확인하는 장치로도 볼 수 있다.
 
 ### 🔸 SOTA 비교: Attention 기반 모델 대비 성능
@@ -325,7 +325,7 @@ $r$은 Fuse 단계의 bottleneck 차원 $d$를 줄이는 reduction ratio다. 즉
   <img src="https://velog.velcdn.com/images/lumerico284/post/e4ef799d-7cee-4f1f-811a-43f8d6674d66/image.png" width="40%">
 </p>
 
-#### Table 2 핵심 발췌: ResNeXt-50 vs SENet-50 vs SKNet-50
+#### Table 2 핵심 발췌: ResNeXt-50 Vs SENet-50 Vs SKNet-50
 | 모델 | $224×$ top-1 err | $320×$ top-1 err |
 |---|---:|---:|
 | `ResNeXt-50 (32×4d)` | $22.23$ | $21.05$ |
@@ -334,7 +334,7 @@ $r$은 Fuse 단계의 bottleneck 차원 $d$를 줄이는 reduction ratio다. 즉
 
 이 비교가 주는 메시지는 단순하다. 같은 계열 backbone에서, SE도 성능을 끌어올리지만, SK는 커널 스케일 선택이라는 다른 축의 메커니즘으로 추가 개선을 만든다. 특히 $224×$ 기준으로 ResNeXt-50 대비 SKNet-50은 1.44%p의 top-1 error 개선을 보이며, 이는 Table 3의 depth/width/cardinality 증가 대비 개선과 비교될 때 더 설득력을 갖는다.
 
-#### Table 2 핵심 발췌: ResNeXt-101 vs SENet-101 vs SKNet-101
+#### Table 2 핵심 발췌: ResNeXt-101 Vs SENet-101 Vs SKNet-101
 | 모델 | $224×$ top-1 err | $320×$ top-1 err |
 |---|---:|---:|
 | `ResNeXt-101` | $21.11$ | $19.86$ |
@@ -350,7 +350,7 @@ Table 2에는 Inception 계열(InceptionV3/V4, Inception-ResNetV2), BAM/CBAM 같
 
 또한 $224×$와 $320×$ 결과를 함께 보고하는 이유는, 단일 crop이라는 제한된 조건에서의 구조 비교뿐 아니라 더 큰 입력에서의 상한 성능에서도 SK의 개선이 유지되는지 확인하기 위함이다. Table 2에서 SKNet의 개선이 두 설정에서 모두 유지된다는 점은, SK가 해상도 증가에만 기대는 트릭이 아니라는 논증으로 이어진다.
 
-### 🔹 SK vs. Depth/Width/Cardinality: 공정 비교
+### 🔹 SK Vs. Depth/Width/Cardinality: 공정 비교
 SKNet은 여러 branch를 쓰기 때문에 baseline ResNeXt 대비 파라미터/연산이 약간 늘어난다. 논문은 이를 공정하게 비교하기 위해 ResNeXt의 복잡도를 depth/width/cardinality를 조정해 SKNet 수준으로 올린 변형들과 비교한다.
 
 <p align="center">
@@ -364,7 +364,7 @@ SKNet은 여러 branch를 쓰기 때문에 baseline ResNeXt 대비 파라미터/
 
 논문은 이를 통해 SK convolution이 단순한 용량 증가가 아니라, **구조적으로 더 효율적인 개선 방향**이라고 주장한다.
 
-#### Table 3이 공정 비교로서 중요한 이유
+#### Table 3의 공정 비교로서의 의의
 SKNet은 branch가 추가되기 때문에 baseline 대비 비용이 늘 수밖에 없다. 이때 단순히 ResNeXt-50과 SKNet-50을 비교하면, 성능 개선이 구조 때문인지 용량 증가 때문인지 반박 여지가 생긴다. Table 3은 이 반박을 줄이는 장치다. ResNeXt 쪽도 비용을 맞추기 위해 **더 넓게, 더 깊게, 더 많은** cardinality를 쓰는 변형을 만들고, 그럼에도 개선 폭이 작다는 사실을 보여준다.
 
 즉, 논문은 성능-비용 관점에서 SK의 선택 메커니즘이 단순한 용량 증가보다 효율적이라고 주장하고, Table 3은 그 주장을 지탱하는 핵심 근거로 기능한다.
@@ -387,12 +387,12 @@ SKNet은 branch가 추가되기 때문에 baseline 대비 비용이 늘 수밖�
 
 여기서 중요한 점은, SK가 경량 setting에서도 SE 대비 추가 이득을 만들 수 있다는 것이다. 논문은 이를 low-end 디바이스에서도 SK의 적용 가능성이 있다는 근거로 사용한다.
 
-#### 경량 모델에서 SK가 SE보다 더 크게 보일 수 있는 이유
+#### 경량 모델에서 SK 효과가 두드러지는 배경
 SE는 채널 축을 재보정해 representation을 강화하지만, 공간적으로 더 넓은 문맥을 직접 만들어 주지는 않는다. 반면 SK는 여러 커널 스케일의 branch를 만들어 실제로 **문맥 크기 자체를 선택**하게 만든다. 경량 모델은 채널 폭/깊이가 제한되어 한 번의 공간 변환이 갖는 정보량이 더 중요해질 수 있고, 이때 문맥 크기를 조절하는 장치가 더 큰 체감 효과를 낼 수 있다.
 
 또한 Table 4에서 SK의 MFLOPs 증가가 SE보다 약간 더 나타나는 구간이 있는데(예: 1.0×에서 $145.66$ vs $141.73$), 그럼에도 top-1 error가 더 내려간다는 점은 SK의 비용-효율이 경량 setting에서도 유지될 수 있음을 시사한다.
 
-#### 경량 모델에서 스케일 선택이 중요한 이유
+#### 경량 모델에서 스케일 선택의 중요성
 모바일 네트워크는 연산 예산 때문에 채널 폭이나 깊이가 제한되고, 표현력이 병목이 되기 쉽다. 이때 SK는 새로운 큰 backbone을 만드는 대신, 제한된 연산 내에서 multi-scale branch를 만들고 선택한다. 즉, 같은 예산에서 정보를 더 효율적으로 사용하는 방향으로 개선이 나타날 수 있다.
 
 ### 🔸 CIFAR 실험: 작은 입력에서도 유지되는 개선
@@ -427,12 +427,12 @@ Table 6의 핵심은 다음이다.
 
 이 결과를 직관적으로 해석하면, 첫 번째 branch가 3×3이라면 두 번째 branch는 더 큰 RF를 제공하는 쪽(대략 5×5)이 가장 자연스럽게 보완 관계를 만들고, 그 조합이 SK의 선택 메커니즘에 의해 가장 효율적으로 사용될 수 있다는 것이다.
 
-#### Table 6에서 D와 G가 같이 등장하는 이유
+#### Table 6에서 D와 G 동시 고려 배경
 논문은 RF를 키우는 방법으로 **dilation을 늘리는 방법과 커널 크기와 그룹 수를 같이 조절하는 방법**을 언급한다. 큰 커널은 비용이 커지므로, 그룹 수를 늘려 비용을 맞추는 전략이 사용된다. Table 6에서 5×5, 7×7 케이스는 그룹 수가 $64$, $128$로 늘어나 있는데, 이는 복잡도를 비슷하게 유지하면서 커널 스케일을 바꾸려는 의도로 해석할 수 있다.
 
 반대로 dilation 기반 근사($3×3, D=2/3$)는 커널 크기를 키우지 않으면서 RF를 키우는 방식이라, 그룹 수를 고정해도 비용이 크게 달라지지 않는다. 논문이 dilated 3×3을 기본 선택으로 삼는 이유가 여기서 다시 확인된다.
 
-#### 5×5 근사가 7×7보다 유리할 수 있는 이유
+#### 5×5 근사가 7×7 대비 유리할 수 있는 조건
 RF를 더 키우면 항상 좋은 것은 아니다. 너무 큰 RF는 불필요한 배경 정보를 섞어 noise가 될 수 있고, 비용도 늘어난다. Table 6은 이 균형점이 **대략 5×5 근사**에서 가장 잘 맞았음을 보여준다. 이는 이후 Table 7에서 3-branch로 커널을 더 늘렸을 때 개선 폭이 작아지는 관찰과도 일관된다.
 
 ### 🔸 Kernal 조합과 SK Attention의 기여
@@ -488,7 +488,7 @@ Table 7에는 $M=1$(단일 경로) 설정도 포함되며, 이때 K3/K5/K7을 �
 #### Fig. 3의 핵심 관찰
 논문은 대부분의 채널에서, 객체가 커질수록 5×5 branch의 attention이 증가한다고 보고한다. 이는 큰 객체일수록 더 넓은 문맥을 필요로 하거나, 더 큰 RF를 쓰는 것이 유리하다는 직관과 일치한다. 따라서 SK가 입력에 따라 RF 크기를 조절하는 방향으로 동작한다는 논증이 가능해진다.
 
-#### Fig. 3의 플롯을 읽는 포인트
+#### Fig. 3 플롯 해석 요점
 논문은 두 가지 형태의 요약을 같이 본다.
 
 1. 특정 SK unit에서 채널별로 5×5 attention이 어떻게 변하는가(채널 축)  
@@ -507,12 +507,12 @@ Fig. 4는 1,000개 클래스 각각에 대해 평균 attention 차이를 계산�
   <img src="https://velog.velcdn.com/images/lumerico284/post/50ba8ba9-ea74-4abe-a025-460bcaaba9fa/image.png" width="70%">
 </p>
 
-#### 고층에서 패턴이 약해지는 이유
+#### 상위 계층에서 패턴이 약화되는 원인
 논문은 깊은 층에서는 스케일 정보가 이미 feature vector에 부분적으로 인코딩되어 있고, 커널 크기 선택의 중요도가 상대적으로 줄어들 수 있다고 해석한다. 즉, 저/중층에서는 공간 스케일 선택이 직접적으로 중요하지만, 고층에서는 의미 수준의 표현이 더 중요해지면서 커널 스케일 선택의 효과가 포화될 수 있다는 것이다.
 
 이 해석은 SK가 모든 층에서 똑같이 큰 커널을 선호하는 것이 아니라 입력과 층 깊이에 따라 달라질 수 있고, SK의 핵심 이득이 저/중층에서의 적응에 더 크게 걸려 있을 수 있다는 시사점을 준다.
 
-#### 논문의 동기와 다시 연결하기
+#### 논문 동기와의 재연결
 초기/중간 stage는 텍스처, edge, 중간 수준의 패턴 등 공간적 스케일이 직접적으로 중요한 표현을 많이 다룬다. 이 구간에서는 객체가 커지면 더 넓은 문맥을 보는 것이 유리하고, 따라서 큰 커널 branch로의 attention 이동이 자연스럽게 나타난다.
 
 반면 매우 깊은 stage에서는 이미 공간 해상도가 줄어들고, 표현은 클래스 구분을 위한 고수준 조합 특징으로 압축된다. 이때는 커널 스케일 선택이 표현의 병목이 되기보다, 채널 조합 자체(어떤 의미 특징을 쓰는가)가 더 중요해질 수 있다. 논문이 말하는 패턴 소실은, SK가 항상 동일한 방식으로 작동한다기보다, 네트워크 깊이에 따라 스케일 선택의 역할이 달라질 수 있음을 보여주는 경험적 단서로 해석할 수 있다.
@@ -546,7 +546,7 @@ SKNet 이후에도 다양한 형태의 동적 convolution, attention, 그리고 
 논문이 제공하는 결과/ablation을 바탕으로, 실무에서 SK를 적용할 때 고려할 포인트를 정리하면 다음과 같다.
 
 - 목표가 RF 적응이라면, 서로 다른 스케일의 branch가 실제로 필요하다(Table 6의 결과가 그 근거다).
-- branch 수 $M$은 무작정 늘리기보다, $M=2$부터 시작하는 것이 효율적으로 유리할 수 있다(Table 7에서 $M=3$의 추가 이득이 작다).
+- Branch 수 $M$은 무작정 늘리기보다, $M=2$부터 시작하는 것이 효율적으로 유리할 수 있다(Table 7에서 $M=3$의 추가 이득이 작다).
 - 큰 커널은 dilation으로 근사하는 편이 성능/효율 면에서 유리할 수 있다(Table 6의 비교).
 - 선택 네트워크의 bottleneck 차원($r$, $L$)은 비용과 선택 정확도를 함께 좌우한다(Eq.(4)).
 - 공정 비교를 위해서는 동일 학습 레시피/평가 프로토콜에서 baseline 대비 개선을 읽는 것이 안전하다(Table 2, 3의 구성 의도).
@@ -630,7 +630,7 @@ class SelectiveKernel(nn.Module):
 
 또한 논문은 큰 커널을 dilation으로 근사하는 설정을 기본으로 소개하지만, Lucid의 `SelectiveKernel`은 `kernel_size=ks`를 직접 사용한다. 따라서 Lucid에서 `kernel_sizes=[3,5]`는 실제 3×3과 5×5 branch를 의미한다.
 
-#### `SelectiveKernel.forward`의 텐서 형태를 따라가기
+#### `SelectiveKernel.forward`의 텐서 형태 추적
 코드가 하는 일을 텐서 shape 관점에서 정리하면 다음과 같다(배치 $N$, 채널 $C$, 공간 $H\times W$, branch 수 $M$).
 
 1. `branch_outs = [branch(x) for branch in self.branches]`  
@@ -639,12 +639,12 @@ class SelectiveKernel(nn.Module):
    - (N, M, C, H, W)로 쌓인다(새로운 branch 축이 axis=1)
 3. `att_scores = self.attention(branch_outs.sum(axis=1))`  
    - `sum(axis=1)`으로 branch 축을 합치면 (N, C, H, W)
-   - attention은 GAP → 1×1 conv → BN → ReLU → 1×1 conv로 (N, M, 1, 1)을 만든다
+   - Attention은 GAP → 1×1 conv → BN → ReLU → 1×1 conv로 (N, M, 1, 1)을 만든다
 4. `att_weights = self.softmax(att_scores).unsqueeze(axis=2)`  
-   - softmax는 axis=1(branch 축)에서 수행된다
+   - Softmax는 axis=1(branch 축)에서 수행된다
    - `unsqueeze(axis=2)`로 (N, M, 1, 1, 1) 형태가 되고 C/H/W로 브로드캐스팅된다
 5. `out = (branch_outs * att_weights).sum(axis=1)`  
-   - branch 축 가중합으로 (N, C, H, W) 출력이 된다
+   - Branch 축 가중합으로 (N, C, H, W) 출력이 된다
 
 즉, Lucid 구현은 공간 위치별 선택이 아니라, 각 branch 전체에 대해 전역적으로 하나의 weight를 만든 뒤 그 weight로 branch를 섞는다. 논문이 말하는 채널별 선택과는 차이가 있지만, 스케일 축의 선택이라는 핵심 흐름은 유지된다.
 
@@ -745,10 +745,10 @@ class _SKResNetModule(nn.Module):
 
 여기서 중요한 구현 포인트는 다음이다.
 
-- width 계산: `base_width`와 `cardinality`로 ResNeXt 스타일 width를 만든다.  
+- Width 계산: `base_width`와 `cardinality`로 ResNeXt 스타일 width를 만든다.  
 - SK 적용 위치: `conv1` 이후의 중간 width feature에 `sk_module`을 적용한다.  
 - BN/ReLU 배치: `SelectiveKernel` 내부 branch는 conv만 수행하므로, 블록 바깥에서 `bn2`와 `relu`로 비선형을 준다.  
-- residual add: downsample이 있으면 identity를 바꾸고 더한다.  
+- Residual add: downsample이 있으면 identity를 바꾸고 더한다.  
 
 #### 논문 SK Unit(1×1 → SK → 1×1)과의 대응
 논문은 SK unit이 1×1 conv, SK convolution, 1×1 conv의 연쇄로 이루어진다고 설명한다(Section 3.2). Lucid 구현도 동일하게, `conv1`이 1×1, `sk_module`이 가운데 변환, `conv3`이 마지막 1×1 역할을 한다. 즉, ResNeXt bottleneck의 중심 3×3 변환 자리에 SK를 끼워 넣는다는 큰 그림은 그대로다.

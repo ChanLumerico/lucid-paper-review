@@ -209,19 +209,19 @@ Hyperparams:
   - dropout = 0.5 on first two FC layers
   - lr = 1e-2, decay by 10 when val stops improving (3 times total)
 For iter = 1..370K:
-  1) Sample a mini-batch of images
-  2) For each image:
+  1. Sample a mini-batch of images
+  2. For each image:
        a) Choose scale S (fixed or random in [Smin,Smax])
        b) Resize isotropically so min side = S
        c) Random crop 224x224
        d) Random horizontal flip
        e) Random RGB colour shift
        f) Subtract per-channel mean RGB (computed on training set)
-  3) Forward -> logits -> softmax
-  4) Compute multinomial logistic regression loss (+ weight decay)
-  5) Backprop gradients
-  6) SGD with momentum update
-  7) If validation accuracy plateaus: lr /= 10
+  3. Forward -> logits -> softmax
+  4. Compute multinomial logistic regression loss (+ weight decay)
+  5. Backprop gradients
+  6. SGD with momentum update
+  7. If validation accuracy plateaus: lr /= 10
 Output: trained weights
 ```
 
@@ -262,14 +262,14 @@ Output: trained weights
 ```text
 Algorithm: VGG dense testing at scale Q (Sect. 3.2)
 Input: trained network, test image I
-1) Resize I isotropically so min side = Q
-2) Convert FC layers to conv layers:
+1. Resize I isotropically so min side = Q
+2. Convert FC layers to conv layers:
      - FC1 -> 7x7 conv
      - FC2, FC3 -> 1x1 conv
-3) Apply the fully-convolutional net densely to the whole image
-4) Obtain class score map (H' x W' x K)
-5) Spatial average pool the score map -> vector s in R^K
-6) Repeat for horizontally flipped image and average posteriors
+3. Apply the fully-convolutional net densely to the whole image
+4. Obtain class score map (H' x W' x K)
+5. Spatial average pool the score map -> vector s in R^K
+6. Repeat for horizontally flipped image and average posteriors
 Output: class posterior for image at scale Q
 ```
 

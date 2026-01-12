@@ -1,4 +1,4 @@
-# [SENet] Squeeze-and-Excitation Networks
+# [SENet] Squeeze-And-Excitation Networks
 SENet은 ResNet이나 Inception처럼 하나의 새로운 backbone을 제안한다기보다, 기존 CNN의 블록에 **채널 단위 주의(attention)** 에 가까운 _부착형 모듈_ 을 더해 표현력을 끌어올리는 방법론으로 보는 편이 정확하다. 논문의 출발점은 간단하다. convolution은 공간 방향으로는 local receptive field를 통해 특징을 학습하지만, **채널 간 의존성(channel-wise dependency)** 을 충분히 명시적으로 모델링하지 못한다. 결과적으로 같은 spatial 위치라도 어떤 채널을 더 믿고 덜 믿을지(또는 클래스/입력에 따라 어떤 특징을 강화/억제할지)가 암묵적으로만 학습된다.
 
 저자들은 이를 **Squeeze-and-Excitation(SE) block**으로 해결한다. SE block은 feature map의 공간 정보를 채널별로 요약해(global pooling) 전역적인 채널 descriptor를 만들고(squeeze), 이 descriptor를 작은 게이트 네트워크로 통과시켜 채널별 중요도 벡터를 만든 뒤(excitation), 원 feature map의 채널을 그 중요도로 스케일링해 재보정(recalibration)한다. 핵심은 이 중요도 벡터가 **입력마다 동적으로** 변한다는 점이다. 따라서 동일한 backbone이라도 입력/클래스에 따라 채널 사용 패턴이 달라지고, 결과적으로 더 강한 표현을 만들 수 있다는 것이 논문 주장이다.
@@ -33,10 +33,10 @@ CNN의 feature map은 $(C, H, W)$ 형태의 3차원 텐서로 생각할 수 있�
 #### 논문이 강조하는 Dynamic의 의미
 SE block이 만드는 중요도 벡터는 고정 파라미터가 아니라 입력에서 계산되는 값이다. 즉, 동일한 네트워크라도 입력 샘플마다 채널별 스케일이 달라질 수 있고, 이는 feature recalibration이 정적 re-weighting이 아니라 **동적 게이팅**에 가깝다는 것을 의미한다. 이후 Section 7의 분석에서 저자들은 실제로 깊이에 따라 excitation이 더 class-specific해지는 경향과, stage 마지막에서 saturation되는 경향 등을 관찰하며 이 동적 성질을 구체적으로 보여준다.
 
-#### SE가 학습에 도움이 되는 이유
+#### SE가 학습에 기여하는 배경
 SE는 최종적으로 $\widetilde{\mathbf{u}}_c = s_c\,\mathbf{u}_c$ 형태의 곱을 수행한다. 이때 $s_c$는 입력에서 계산되는 값이므로, 네트워크는 **어떤 채널이 유용한지를 직접 반영하는 방향**으로 $s$를 만들도록 학습될 수 있고, 동시에 그 $s$를 만들어내는 게이트 네트워크가 더 좋은 채널 의존성 표현을 학습하도록 역전파된다. 특히 residual 구조에서는 identity shortcut이 항상 남아 있기 때문에, 채널이 강하게 억제되는 상황에서도 학습이 완전히 막히지 않는 경로가 존재한다는 점이 실전적으로는 중요하다.
 
-### 🔸 다양한 Backbone에 부착되기 쉬운 이유
+### 🔸 다양한 Backbone 적용 용이성
 SE block은 어떤 변환 $F_{tr}$의 출력에 후처리로 붙는다. 여기서 $F_{tr}$은 residual branch일 수도 있고(Inception 모듈 전체일 수도 있다), 일반적인 convolution block일 수도 있다. 즉, SE는 backbone을 새로 설계하는 대신, 기존 네트워크가 만들어낸 intermediate representation을 **채널 단위로 재보정**하는 방식이다.
 
 이 설계가 잘 붙는다는 의미는 두 가지다.
@@ -46,10 +46,10 @@ SE block은 어떤 변환 $F_{tr}$의 출력에 후처리로 붙는다. 여기�
 
 논문은 이런 특성을 바탕으로 ResNet/ResNeXt/Inception-ResNet-v2/VGG/BN-Inception뿐 아니라 MobileNet/ShuffleNet, 그리고 다운스트림(Places365, COCO detection)까지 광범위한 실험을 통해 일반성을 보이려 한다.
 
-#### 모듈 부착이 쉬운 이유 1: 텐서 형태를 보존하는 연산
+#### 모듈 부착 용이성 1: 텐서 형태 보존 연산
 SE의 출력은 입력과 같은 $C\times H\times W$ 형태를 유지한다. 관점에 따라 SE는 feature map에 **대각 행렬(diagonal matrix)** 형태의 채널별 gain을 곱하는 연산으로 볼 수 있다. 중요한 것은 이 gain이 입력에서 계산된다는 점이고, 그렇기 때문에 모듈을 끼워 넣더라도 앞뒤 블록의 인터페이스가 깨지지 않는다. 구조를 바꾸지 않고도 representation의 성질만 바꾸는 방식이므로, 기존 backbone 설계 철학과 충돌이 적다.
 
-#### 모듈 부착이 쉬운 이유 2: Residual과의 궁합
+#### 모듈 부착 용이성 2: Residual과의 결합성
 Residual block에 SE를 붙이면, residual branch의 출력이 add로 합쳐지기 전에 한 번 재보정된다. 이는 residual branch에서 어떤 채널이 중요했는지 반영해 shortcut과 합쳐지는 비율을 조정하는 효과로도 해석할 수 있고, add 이후에 비선형이 붙는 구조에서 채널 간 스케일이 과도하게 커지거나 작아지는 현상을 완화하는 형태로도 볼 수 있다. 논문이 Fig. 3에서 SE-ResNet 모듈을 도식화하고, 이후 ablation에서 삽입 위치를 비교하는 흐름은 이 직관을 실험으로 확인하려는 시도다.
 
 #### 이 논문이 의도적으로 강조하는 실무적 메시지
@@ -62,8 +62,8 @@ SE는 개별 데이터셋이나 특정 모델에서만 통하는 트릭이라기
 ### 🔹 Channel Attention과 Feature Recalibration의 배경
 SE의 핵심은 **channel-wise gating**이지만, 논문은 이를 독립적인 새로운 발명이라기보다 여러 흐름과 연결해서 위치시킨다. 대표적으로
 
-- global average pooling을 통한 채널 요약(분류기 앞의 GAP)  
-- gating/attention 계열 아이디어(특징 선택)  
+- Global average pooling을 통한 채널 요약(분류기 앞의 GAP)  
+- Gating/attention 계열 아이디어(특징 선택)  
 - 네트워크 내부의 컨텍스트 활용(전역 정보로 local feature를 보정)
 
 같은 요소들이 이전부터 부분적으로 존재했다. 하지만 SENet의 차이는 이런 요소들을 **블록 단위로 표준화**해 어디에나 붙일 수 있는 모듈로 만든 점이다. 즉, 어떤 특정 task에만 쓰이는 attention이 아니라, backbone 설계 단위의 primitive로 제안한다.
@@ -76,7 +76,7 @@ SE의 핵심은 **channel-wise gating**이지만, 논문은 이를 독립적인 
 #### 채널 의존성을 명시적으로 분리하는 시도
 일반적으로 convolution은 공간과 채널을 동시에 다루는 연산이고, 채널을 통한 상호작용은 고정 가중치의 선형 결합으로 처리된다. SENet은 이 상호작용을 채널 중요도 벡터라는 형태로 분리해 계산하고, 그 벡터를 통해 feature map을 재스케일한다. 이렇게 하면 채널 관계를 학습하는 부분(FC 게이트)이 블록 내부에서 명시적으로 드러나고, 그 결과를 해석하거나 ablation하기가 쉬워진다.
 
-### 🔸 다양한 Backbone에서 공통적으로 재사용되는 이유
+### 🔸 다양한 Backbone에서의 재사용성
 ResNet 이후 많은 연구가 보여주듯, backbone의 구조적 변화는 classification뿐 아니라 detection/segmentation 등으로 **전이되는 경우가 많다**. SE block은 이 전이 흐름에 특히 적합하다. 왜냐하면 SE는 backbone의 공간적 구조를 건드리지 않고, 채널 recalibration이라는 표현 학습의 성질을 바꾸기 때문이다. 따라서 ResNet에 붙이면 SE-ResNet, ResNeXt에 붙이면 _SE-ResNeXt_, Inception 모듈에 붙이면 _SE-Inception_ 형태로 동일한 원리가 재사용된다.
 
 #### 변환 $F_{tr}$의 출력 위에 SE 얹기
@@ -93,7 +93,7 @@ Fig. 2/3의 핵심은 SE가 특정 레이어 하나(conv 하나)에만 붙는 �
 
 ---
 
-## 3️⃣ Squeeze-and-Excitation Blocks
+## 3️⃣ Squeeze-And-Excitation Blocks
 
 ### 🔹 기본 표기: Feature Map과 변환 $F_{tr}$
 논문은 어떤 변환 $F_{tr}$이 입력 feature map을 출력 feature map으로 사상한다고 두고, 그 출력이 SE block의 입력이 된다고 설명한다. 일반적으로 CNN의 중간 feature map은
@@ -106,7 +106,7 @@ $$
 
 SE의 목표는 $\mathbf{U}$에 담긴 채널 응답을 그대로 다음 블록에 넘기는 것이 아니라, 채널 간 관계를 고려해 어떤 채널은 키우고 어떤 채널은 줄여서 **더 유리한 representation**을 만들어내는 것이다.
 
-#### $F_{tr}$를 도입하는 이유
+#### $F_{tr}$ 도입의 목적
 논문이 $F_{tr}$이라는 추상화를 쓰는 이유는, SE를 단지 conv-activation 같은 미시적 레이어에만 붙이는 것이 아니라 Inception 모듈이나 residual unit 같은 **설계 단위** 위에도 자연스럽게 붙일 수 있게 만들기 위해서다. 입력을 $\mathbf{X}$라고 두면,
 
 $$
@@ -124,12 +124,12 @@ $$
 
 로 정의할 수 있다. 이 연산은 각 채널이 이미지 전체에 대해 얼마나 활성화되는지(평균 응답)를 요약한다. 결과적으로 $\mathbf{z}$는 입력 이미지의 전역 문맥을 반영한 채널 요약이며, **excitation 단계의 입력**이 된다.
 
-#### Squeeze가 실제로 하는 일: 공간 정보를 버리고 전역 문맥을 남기기
+#### Squeeze 단계의 기능: 공간 정보 압축과 전역 문맥 보존
 Global average pooling은 각 채널의 공간적 활성화 패턴을 하나의 스칼라로 요약한다. 이는 정보 손실을 동반한다. 하지만 논문이 원하는 것은 위치별로 다른 가중치가 아니라, **이 채널이 현재 입력에서 전반적으로 유용한가**라는 전역적 신호다. SE는 채널별로 동일한 스케일을 $(H,W)$ 전 위치에 곱하므로, 채널 게이트를 만들 때도 공간 좌표마다 다른 값을 만들 필요가 없고, 전역 요약이 설계 목적과 잘 맞는다.
 
 또한 squeeze는 단순히 평균을 내는 것처럼 보이지만, 결과적으로 각 채널이 입력 전체에서 얼마나 강하게 반응했는지에 대한 통계를 제공한다. 이 통계가 다음 단계에서 채널 간 관계를 학습하는 데 들어가므로, squeeze는 채널 attention이 **local receptive field를 넘어선 문맥을 반영하도록** 만드는 핵심 연결 고리다.
 
-#### Global Average Pooling을 사용하는 이유
+#### Global Average Pooling 채택 근거
 논문은 squeeze 단계에서 더 복잡한 집계 연산도 가능하지만, 글로벌 평균 풀링이 간단하고 효과적이어서 기본 선택으로 삼는다. 이후 ablation에서 global max pooling과 비교해도 큰 차이는 없지만 average가 약간 더 낫다는 결과를 보고한다. 중요한 것은, squeeze가 채널 간 관계를 계산하는 데 필요한 전역 정보를 제공한다는 점이며, 단순한 pooling만으로도 의미 있는 성능 차이가 나타난다는 것이 논문의 주장이다.
 
 ### 🔹 Excitation: 채널별 게이트 학습하기
@@ -150,7 +150,7 @@ $$
 #### 논문이 Excitation에 요구하는 두 조건: 유연함 + 비(非)배타성
 논문 텍스트는 excitation을 설계할 때 두 가지 조건을 명시한다. 채널 간 상호작용을 학습할 수 있을 정도로 충분히 유연해야 하고(특히 비선형 상호작용), 여러 채널이 동시에 강조될 수 있도록 **non-mutually-exclusive** 관계를 학습해야 한다는 것이다. 이 관점에서 sigmoid 게이팅은 자연스럽다. softmax처럼 한 채널을 올리면 다른 채널을 반드시 내리는 경쟁 구조가 아니라, 필요한 채널들을 동시에 올려 줄 수 있기 때문이다.
 
-#### Bottleneck이 들어가는 이유
+#### Bottleneck 도입 근거
 만약 $\mathbf{z}\in\mathbb{R}^{C}$에 대해 단일 FC로 $\mathbf{s}\in\mathbb{R}^{C}$를 만들면, 파라미터가 $C^2$로 커진다. SE는 중간 차원을 $C/r$로 줄였다가 다시 늘리는 bottleneck을 넣어 파라미터를 대략 $2C^2/r$로 낮춘다. 이때 $r$은 단순히 비용만 줄이는 값이 아니라, 채널 의존성을 얼마나 압축해서 표현할지(표현력 vs 효율)를 정하는 손잡이이기도 하다. 그래서 논문은 Table 10에서 $r$을 바꿔가며 정확도/파라미터 균형이 어떻게 달라지는지 확인한다.
 
 #### Excitation이 채널 의존성을 모델링하는 방식
@@ -158,7 +158,7 @@ $$
 
 또한 sigmoid를 통해 $s_c\in(0,1)$ 범위로 제한되므로, excitation은 본질적으로 채널을 억제하거나(0에 가까움) 유지/강화하는(1에 가까움) 게이트 역할을 하게 된다. ablation에서 sigmoid를 ReLU나 tanh로 바꾸면 성능이 나빠지는 결과는, 이 게이트의 형태가 성능에 중요하다는 것을 보여준다.
 
-#### 입력 조건부라는 말의 의미
+#### 입력 조건부(Conditioned) 표현의 의미
 Excitation을 통해 만들어지는 $\mathbf{s}$는 입력 $\mathbf{U}$에서 유도된 $\mathbf{z}$의 함수다. 즉, 같은 네트워크 파라미터 $W_1,W_2$를 갖고 있어도 입력이 달라지면 $\mathbf{s}$가 달라진다. 논문이 이 구조를 self-attention으로 해석하는 이유도 여기에 있다. 핵심은 attention 신호가 local receptive field에만 갇히지 않도록 squeeze에서 전역 요약을 넣었다는 점이고, 그래서 결과적으로 채널 간 관계가 **더 긴 범위의 문맥을 반영**할 수 있게 된다는 주장이다.
 
 ### 🔸 Scale: Feature Map을 채널별로 재보정
@@ -188,14 +188,14 @@ Scale은 계산 자체는 단순한 곱이지만, 의미는 크다. $s_c$는 (0,
 SE를 구현/해석할 때 헷갈리기 쉬운 포인트를 논문 흐름대로 체크리스트로 정리하면 다음과 같다.
 
 - 입력/출력 텐서 형태는 동일해야 한다: $\mathbf{U},\widetilde{\mathbf{U}}\in\mathbb{R}^{C\times H\times W}$
-- squeeze는 공간 축을 제거해 채널 descriptor를 만든다: $\mathbf{z}\in\mathbb{R}^{C}$
-- excitation은 $\mathbf{z}$의 모든 채널 정보를 섞어 $\mathbf{s}\in\mathbb{R}^{C}$를 만든다
+- Squeeze는 공간 축을 제거해 채널 descriptor를 만든다: $\mathbf{z}\in\mathbb{R}^{C}$
+- Excitation은 $\mathbf{z}$의 모든 채널 정보를 섞어 $\mathbf{s}\in\mathbb{R}^{C}$를 만든다
 - 게이트는 non-mutually-exclusive해야 한다: 여러 채널을 동시에 강조할 수 있어야 한다
-- reduction ratio $r$은 비용과 표현력을 동시에 조절한다: 너무 작으면 비싸고, 너무 크면 약해진다(Table 10)
-- sigmoid는 단순한 선택이 아니라 게이트의 의미를 보장한다(Table 12)
-- scale은 채널별 곱으로 구현된다: 공간 위치마다 다른 가중치가 아니라 채널별 동일 스케일이다
-- residual에 통합할 때는 add 이전이 자연스럽다(Table 14)
-- stage별 적용은 누적될 수 있고, 모든 stage가 반드시 동일할 필요는 없다(Table 13, Fig. 6/7)
+- Reduction ratio $r$은 비용과 표현력을 동시에 조절한다: 너무 작으면 비싸고, 너무 크면 약해진다(Table 10)
+- Sigmoid는 단순한 선택이 아니라 게이트의 의미를 보장한다(Table 12)
+- Scale은 채널별 곱으로 구현된다: 공간 위치마다 다른 가중치가 아니라 채널별 동일 스케일이다
+- Residual에 통합할 때는 add 이전이 자연스럽다(Table 14)
+- Stage별 적용은 누적될 수 있고, 모든 stage가 반드시 동일할 필요는 없다(Table 13, Fig. 6/7)
 
 #### SE Block Pseudocode
 SE의 forward 흐름을 논문 정의에 맞춰 의사코드로 정리하면 다음과 같다.
@@ -217,15 +217,15 @@ return U_tilde
 
 ## 4️⃣ 계산 복잡도
 
-### 🔹 FLOPs 증가가 작은 이유
+### 🔹 FLOPs 증가 억제 요인
 SE block이 추가하는 연산은 크게 두 가지다.
 
-1. global average pooling: $C$개의 채널에 대해 $H\cdot W$를 평균내는 연산  
+1. Global average pooling: $C$개의 채널에 대해 $H\cdot W$를 평균내는 연산  
 2. 두 개의 FC: $C\rightarrow C/r\rightarrow C$
 
 논문은 ResNet-50에 SE를 붙일 때 GFLOPs 증가가 거의 없음을 강조한다. Table 2 기준으로 ResNet-50의 GFLOPs가 3.86이고, SENet(=SE-ResNet-50)의 GFLOPs가 $3.87$로 거의 같다. 즉, 채널 재보정의 효과를 매우 작은 비용으로 얻는 구조다.
 
-#### FLOPs가 작게 느껴지는 이유
+#### FLOPs 증가가 작게 관찰되는 배경
 SE의 추가 연산을 conv와 대비해 보면 직관이 분명해진다. conv는 일반적으로 $H\times W$ 공간 전 위치에서 채널 혼합을 수행한다. 특히 3×3 conv는 커널 면적까지 포함돼 연산량이 커지기 쉽다. 반면 SE에서 무거운 부분은 두 개의 FC인데, 이 FC는 $H,W$에 의존하지 않고 **채널 축에서만** 계산된다. squeeze가 $H\times W$를 평균내기는 하지만, 이는 곱-합 구조의 conv에 비해 상대적으로 단순한 집계 연산이며, 전체 네트워크 FLOPs에서 차지하는 비중이 작다.
 
 또한 SE는 블록 출력의 채널을 다시 섞는 것이 아니라 채널별 스케일을 곱하기만 한다. 즉, 복잡한 feature 생성 연산을 추가하는 방식이 아니라, 이미 생성된 feature의 사용 비율을 조절하는 방식이므로, 비용 대비 성능 개선이라는 관점에서 설계 의도가 명확하다.
@@ -239,7 +239,7 @@ SE block의 각 단계는 다음처럼 매우 단순한 형태로 비용을 생�
 
 여기서 conv의 비용이 대체로 $O(k^2\cdot C_{in}\cdot C_{out}\cdot H\cdot W)$처럼 커널 면적과 채널 곱까지 포함되는 것과 비교하면, SE의 추가 비용이 왜 상대적으로 작게 나타나는지 직관적으로 이해할 수 있다. 특히 excitation의 비용은 $H,W$에 직접 비례하지 않기 때문에, 공간 해상도가 큰 구간에서 conv의 비용이 급격히 커지는 것과 대비된다.
 
-### 🔸 추가 파라미터: reduction ratio $r$로 제어되는 FC 비용
+### 🔸 추가 파라미터: Reduction Ratio $r$로 제어되는 FC 비용
 SE의 추가 파라미터는 주로 excitation의 FC 레이어에서 생긴다. $W_1$과 $W_2$의 파라미터 수는 대략
 
 $$
@@ -271,7 +271,7 @@ $$
 
 평가에서는 center crop을 사용한다($224×224$, Inception 계열은 $299×299$). Table 2는 단일 crop 기준의 top-1/top-5 error와 GFLOPs를 함께 제공해, 성능 향상과 비용 증가를 동시에 비교할 수 있게 한다.
 
-#### 단일 Crop의 이유
+#### 단일 Crop 평가 채택 근거
 ImageNet에서는 multi-crop이나 multi-scale 같은 test-time 기법을 쓰면 성능이 올라간다. 하지만 그런 기법은 구조 변화(SE 유무) 외의 요소를 추가로 섞는 효과가 있고, 특히 서로 다른 논문/모델 간에 적용 방식이 다르면 비교가 어려워진다. 그래서 논문은 Table 2에서 단일 crop 결과를 중심으로 제시해, 가능한 한 구조 변화의 효과를 깔끔하게 읽을 수 있도록 한다.
 
 또한 crop 크기를 명시하는 것도 중요하다. 입력 해상도는 성능과 연산량에 직접 영향을 주기 때문에, crop 크기를 바꾸면 SE의 효과가 아니라 입력 해상도 변화가 성능 차이로 나타날 수 있다. Table 2처럼 GFLOPs까지 함께 제시하는 구성은, 이런 혼선을 줄이면서 성능-비용을 동시에 읽게 만들려는 의도로 이해할 수 있다.
@@ -282,9 +282,9 @@ ImageNet에서는 multi-crop이나 multi-scale 같은 test-time 기법을 쓰면
 #### Table 2를 공정하게 읽기 위한 체크리스트
 논문에서 baseline 대비 SENet 개선을 해석할 때, 실수하기 쉬운 포인트를 체크리스트로 정리하면 다음과 같다.
 
-- original 숫자와 re-implementation 숫자를 구분해서 본다
+- Original 숫자와 re-implementation 숫자를 구분해서 본다
 - 가능한 한 re-implementation 대비 SENet 변화량을 중심으로 본다
-- crop 크기(224 vs 299) 같은 입력 조건이 같은지 확인한다
+- Crop 크기(224 vs 299) 같은 입력 조건이 같은지 확인한다
 - 단일 crop인지, multi-crop/multi-scale인지 확인한다
 - 성능만 보지 말고 GFLOPs를 같이 본다(특히 backbone이 다르면 필수)
 - 표가 말해주는 것은 평균적 경향이며, 실제 설정에서는 $r$이나 삽입 위치 튜닝 여지가 남는다(Table 10, 14)
@@ -293,7 +293,7 @@ ImageNet에서는 multi-crop이나 multi-scale 같은 test-time 기법을 쓰면
 
 ## 6️⃣ 모델 실험
 
-### 🔹 ImageNet Classification: 다양한 backbone에 대한 일관된 개선
+### 🔹 ImageNet Classification: 다양한 Backbone에 대한 일관된 개선
 ImageNet-1K에서의 핵심 결과는 Table 2다. Table 2는 `ResNet/ResNeXt/VGG/BN-Inception/Inception-ResNet-v2`에 SE를 붙였을 때의 단일 crop error와 GFLOPs를 제공한다.
 
 <p align="center">
@@ -330,7 +330,7 @@ Table 2에서 VGG-16(BN)은 baseline top-5 error $8.81$이 SE 적용 후 $7.70$�
 #### ResNet/ResNeXt에서의 의미
 ResNet/ResNeXt 비교에서는, SE가 깊이를 늘리는 방식과는 **다른 축의 개선을 제공**한다는 해석이 가능하다. ResNet-50에 SE를 붙인 모델이 ResNet-101의 성능에 근접한다는 점은, 단순히 파라미터를 늘려서가 아니라 representation을 더 효율적으로 쓰는 구조 변화가 성능에 반영될 수 있음을 보여준다. 물론 최종적으로는 depth와 SE를 같이 쓰는 것도 가능하며, Table 2에서 더 깊은 모델에서도 SE가 꾸준히 이득을 주는 것이 그 근거다.
 
-#### 깊이 대비 효율: SE-ResNet-50 vs ResNet-101
+#### 깊이 대비 효율: SE-ResNet-50 Vs ResNet-101
 논문이 강조하는 대표 비교는 `SE-ResNet-50`의 top-5 error $6.62$가 `ResNet-101`의 $6.52$에 근접하면서, GFLOPs는 절반 수준($3.87$ vs $7.58$)이라는 점이다. 즉, depth를 늘리는 것과 SE를 붙이는 것이 완전히 동일한 축은 아니며, depth가 제공하는 이득이 줄어드는 구간에서 SE는 다른 방식으로 추가 성능을 제공한다는 해석이 가능하다.
 
 <p align="center">
@@ -368,7 +368,7 @@ Places365는 장면 분류로, 객체 분류와 다른 형태의 일반화 능�
 ### 🔸 ILSVRC 2017: SENet-154와 SOTA 비교
 논문은 ILSVRC 2017 classification에서 1위였고, winning entry는 multi-scale/multi-crop ensemble로 top-5 error $2.251$을 얻었다고 언급한다. 또한 단일 모델로 `SENet-154`를 제안하고, Table 8에서 다른 SOTA와 비교한다.
 
-#### SENet-154는 무엇인가: SE + (modified) ResNeXt
+#### SENet-154의 정의: SE + (Modified) ResNeXt
 논문은 대회 제출 과정에서 추가 모델 `SENet-154`를 구성했다고 설명한다. 핵심은 SE block을 ResNeXt 계열의 backbone(논문 표현으로는 modified ResNeXt)에 통합했다는 점이다. 즉, `SENet-154`는 SE 자체의 원리를 바꾸는 것이 아니라, 경쟁력 있는 backbone 위에 SE를 결합해 더 높은 상한을 노린 설계로 볼 수 있다. 아키텍처 세부는 Appendix에 있다고 언급되는데, 본문 흐름에서는 SE가 다양한 backbone에 부착될 수 있다는 메시지를 대회 결과로 다시 한 번 강조하는 역할을 한다.
 
 또한 논문이 ensemble과 single-model 결과를 구분해 보고하는 방식도 중요하다. ensemble은 강한 test-time 기법과 결합되어 있기 때문에, SE의 순수 구조 효과만을 말하긴 어렵다. 반면 Table 8의 single-crop 비교는 상대적으로 구조적 비교에 가깝고, SE가 SOTA 수준의 경쟁에서도 **유효한 구성 요소**가 될 수 있음을 보여준다.
@@ -377,7 +377,7 @@ Places365는 장면 분류로, 객체 분류와 다른 형태의 일반화 능�
   <img src="https://velog.velcdn.com/images/lumerico284/post/febcb6ee-bfc7-4b2f-8632-0c93021a02a8/image.png" width="40%">
 </p>
 
-#### Table 8의 비교 포인트
+#### Table 8 비교 요점
 Table 8은 두 가지 crop 크기 설정을 나눠 보고한다($224×224$, 그리고 더 큰 크기인 $320×320$ 또는 $299×299$). 입력 해상도가 커지면 일반적으로 성능이 좋아질 수 있지만, 동시에 연산량도 늘어난다. 그래서 이 표를 읽을 때는, 같은 해상도 구간 안에서 `SENet-154`가 어디에 위치하는지를 먼저 보고, 그 다음 해상도를 키웠을 때 모델 간 순위나 격차가 어떻게 변하는지를 보는 편이 깔끔하다.
 
 또한 `SENet-154`는 SE를 단지 ResNet에 붙인 변형이 아니라 _modified ResNeXt_ 와 결합된 모델이다. 즉, Table 8의 순위는 SE만의 효과가 아니라 backbone 선택과 결합된 결과다. 그럼에도 이 표가 본문에서 차지하는 의미는, SE가 기존 backbone의 성능을 약간 올리는 수준을 넘어, 강력한 backbone과 결합됐을 때도 경쟁력 있는 상위권 성능을 유지할 수 있다는 메시지를 주는 데 있다.
@@ -483,7 +483,7 @@ SE를 **3×3 conv 뒤**에 두는 변형은, 채널 폭이 상대적으로 작�
 
 ## 8️⃣ SE Blocks의 역할
 
-### 🔹 Squeeze의 역할: 전역 정보가 정말 필요한가
+### 🔹 Squeeze의 역할과 전역 정보 필요성
 논문은 squeeze의 중요성을 보기 위해 _NoSqueeze_ 변형을 만든다. 이는 global average pooling을 없애고, excitation의 두 FC를 1×1 conv로 대체해 공간 차원을 유지하는 방식이다. 결과는 Table 16이다.
 
 <p align="center">
@@ -515,7 +515,7 @@ Section 7.2에서는 excitation 값의 분포를 시각화해 SE의 동작을 �
 
 이 세 번째 관찰은 Section 4의 마지막 stage SE를 빼도 성능 손실이 작다는 실험적 관찰과도 일관된다. 즉, 마지막 stage에서는 이미 표현이 충분히 정리되어 있고, 채널 재보정이 덜 필요해질 수 있다는 경험적 해석이 가능하다.
 
-#### Fig. 6/7을 논문 흐름으로 다시 연결하면
+#### Fig. 6/7의 논문 전개상 위치 재정리
 초기 층에서 **class-agnostic한 excitation 분포**가 나온다는 것은, 초기에 학습되는 특징(엣지, 기본 텍스처 등)이 클래스마다 크게 다르지 않다는 일반적인 표현 학습 직관과 맞닿아 있다. 반대로 깊은 층에서 class-specific해진다는 것은, 고수준 의미 특징의 조합이 클래스마다 달라지고, 그 조합을 만들 때 어떤 채널을 얼마나 통과시킬지가 중요해진다는 해석으로 이어진다.
 
 또한 마지막 stage에서 excitation이 1 근처로 포화되는 경향은, _(a)_ 그 시점의 표현이 이미 분류에 충분히 정리되어 있어 추가 억제가 필요하지 않거나, _(b)_ 학습 과정에서 게이트가 점차 열리며 identity에 가까운 형태로 수렴할 수도 있음을 시사한다. 논문은 이를 근거로 마지막 stage SE 제거 실험(비용 절감)을 해석하고, practical하게는 stage별로 SE 사용을 조절할 여지가 있음을 남긴다.
@@ -542,8 +542,8 @@ SENet의 가장 큰 의의는 채널 축을 단순한 필터들의 나열로 두
 
 또한 ablation(Table 10~16)은 SE의 효과가 단지 파라미터 증가 때문이 아니라, **squeeze(전역 정보)와 excitation(게이트 형태) 설계가 함께 맞물려야 한다는 점**을 보여준다. 예컨대 sigmoid를 다른 비선형으로 바꾸면 성능이 크게 나빠지고(Table 12), global pooling을 제거하면 효율이 떨어진다(Table 16). 즉, 채널 attention이라는 넓은 아이디어를 성능으로 연결하기 위해 어떤 구성 요소가 본질적인지에 대한 실험적 근거를 제공한다는 점도 중요하다.
 
-#### 왜 이 논문이 오래 살아남았는가: 단순하지만 조립 가능한 설계
-SE의 구조는 수식으로 보면 매우 단순하다. 그런데 그 단순함이 오히려 강점이 된다. 어떤 backbone을 쓰든 $\mathbf{U}$만 정의할 수 있으면 동일한 방식으로 채널 게이트를 만들고 적용할 수 있기 때문이다. 연구 관점에서는 새로운 블록을 제안할 때 중요한 질문이 두 가지인데, (1) 다양한 구조/과제에서 일반적으로 통하느냐, (2) 비용 대비 이득이 분명하냐이다. SENet은 이 두 질문에 대해 Table 2~7(여러 backbone/여러 데이터셋)과 Model Complexity 분석으로 비교적 설득력 있는 답을 구성한다.
+#### 논문의 지속적 영향 요인: 단순성과 조립 가능성
+SE의 구조는 수식으로 보면 매우 단순하다. 그런데 그 단순함이 오히려 강점이 된다. 어떤 backbone을 쓰든 $\mathbf{U}$만 정의할 수 있으면 동일한 방식으로 채널 게이트를 만들고 적용할 수 있기 때문이다. 연구 관점에서는 새로운 블록을 제안할 때 중요한 질문이 두 가지인데, 첫째 다양한 구조/과제에서 일반적으로 통하는지, 둘째 비용 대비 이득이 분명한지이다. SENet은 이 두 질문에 대해 Table 2~7(여러 backbone/여러 데이터셋)과 Model Complexity 분석으로 비교적 설득력 있는 답을 구성한다.
 
 또한 논문은 단순히 성능이 올랐다는 주장으로 끝내지 않고, ablation을 통해 어떤 구성 요소가 본질인지(전역 pooling, sigmoid 게이트, 삽입 위치 등)를 분해해 보여준다. 이런 형태의 논증은 이후 다른 attention/재보정 모듈을 설계할 때도 기준점으로 작동하기 쉽다.
 
@@ -723,7 +723,7 @@ def se_resnet_50(num_classes: int = 1000, **kwargs) -> SENet:
 
 즉, Lucid에서는 ResNet-18/34는 별도 SE-basic-block을 쓰고, ResNet-50+는 기존 bottleneck에 SE를 켠다는 방식으로 논문 SE-ResNet 계열을 구현한다.
 
-#### 팩토리 함수를 직접 호출하는 가장 단순한 사용 예
+#### 팩토리 함수 직접 호출 최소 사용 예시
 Lucid 구현을 실험적으로 확인하고 싶다면, 등록 시스템을 거치지 않고도 팩토리 함수를 직접 호출해 모델 인스턴스를 만들 수 있다.
 
 ```python

@@ -327,16 +327,16 @@ top-5 error는 정답이 상위 5개 예측 안에 없을 비율이다. 즉 GT�
 ```text
 Algorithm: GoogLeNet classification inference (Sect. 7)
 Input: image I, ensemble models {M_j}
-1) For each scale s in {256, 288, 320, 352}:
+1. For each scale s in {256, 288, 320, 352}:
      a) Resize I so shorter side = s
      b) Take 3 squares (left/center/right or top/center/bottom)
      c) For each square:
           - take 4 corners + center 224x224 crops (5)
           - take the whole square resized to 224x224 (1)
           - add mirrored versions (x2)
-2) For each crop c and each model M_j:
+2. For each crop c and each model M_j:
      p_{j,c} = softmax(M_j(c))
-3) Average probabilities:
+3. Average probabilities:
      p = mean_{j,c} p_{j,c}
 Output: predicted class ranking from p
 ```
