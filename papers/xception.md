@@ -3,7 +3,11 @@ Xception은 Inception 계열의 모듈을 다시 해석하는 것에서 출발�
 
 논문의 핵심 메시지는 성능 향상이 단순한 파라미터 증가가 아니라 **파라미터 사용 방식의 효율**에서 기인한다는 점이다. ImageNet에서는 Inception V3 대비 소폭 개선을, 훨씬 큰 내부 데이터셋(JFT)에서는 큰 개선을 보고한다. 또한 Residual Connection의 중요성, Depthwise–Pointwise 사이의 중간 activation 유무가 학습에 미치는 영향을 별도 실험으로 분해해 논증한다.
 
-(Fig. 1: Inception V3에서 사용되는 Canonical Inception Module)  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/e954d6b4-c057-4d23-8481-0355c0a23e88/image.png" width="40%">
+</p>
+
+---
 
 ## 1️⃣ Introduction
 
@@ -42,8 +46,9 @@ $$
 
 즉, 채널 혼합을 먼저 수행하고 그 결과 위에서 공간 변환을 수행한다는 점에서, Inception은 단일 convolution이 수행하던 일을 부분적으로 분해한다.
 
-(Fig. 2: Pooling Tower가 제외된 Simplified Inception Module)  
-(Fig. 3: Simplified Inception Module의 Strictly Equivalent Reformulation)  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/c787ed28-3b94-443f-8390-1a04571625d6/image.png" width="60%">
+</p>  
 
 #### Canonical Inception Module과 Simplified Inception Module의 역할 분리
 논문은 Fig. 1에서 Inception V3의 canonical module을 보여주지만, 설계 해석을 위해 Fig. 2에서 단순화된 Inception module을 사용한다. 이 단순화는 핵심 논점을 분리하기 위한 장치로 이해할 수 있다.
@@ -63,7 +68,9 @@ $$
 
 논문은 이 질문을 통해 **정규 convolution과 depthwise separable convolution이 하나의 연속선 위에 놓인다**는 관점을 제시한다.
 
-(Fig. 4: Output Channel마다 Spatial Convolution을 두는 Extreme Inception 형태)  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/fc42bb87-7530-4b86-b296-0a5fd3cdff3d/image.png" width="40%">
+</p>
 
 #### Segmented Spatial Convolution과 Grouped Convolution의 대응
 Fig. 3의 재표현은 구현 관점에서 보면 grouped convolution과 매우 유사한 형태로 해석될 수 있다. 채널을 여러 segment로 나누어 각 segment에 대해 독립적인 공간 convolution을 적용한다는 것은, convolution의 `groups`를 증가시키는 방향과 같은 형태의 분해를 의미한다.
@@ -100,19 +107,19 @@ Output: Y (N x Cout x H' x W')
 #### Parameter Count And FLOPs 관점의 정리
 파라미터 수가 줄어드는 것과 실제 연산량(FLOPs)이 줄어드는 것은 서로 강하게 연관되지만, 완전히 같은 개념은 아니다. Xception 논문이 말하는 효율은 두 관점 모두에서 이해할 수 있다.
 
-입력 feature map의 공간 크기를 $H\\times W$라고 할 때, 정규 convolution의 대략적 MAC(Multiply-Accumulate) 수는
+입력 feature map의 공간 크기를 $H\times W$라고 할 때, 정규 convolution의 대략적 MAC(Multiply-Accumulate) 수는
 
 $$
-H\\cdot W\\cdot k^2\\cdot C_{in}\\cdot C_{out}
+H\cdot W\cdot k^2\cdot C_{in}\cdot C_{out}
 $$
 
 으로 볼 수 있다. 반면 depthwise separable convolution은
 
 $$
-H\\cdot W\\cdot \\left(k^2\\cdot C_{in} + C_{in}\\cdot C_{out}\\right)
+H\cdot W\cdot \left(k^2\cdot C_{in} + C_{in}\cdot C_{out}\right)
 $$
 
-에 해당한다. $C_{out}$이 충분히 큰 일반적인 구간에서는 $k^2\\cdot C_{in}\\cdot C_{out}$와 $C_{in}\\cdot C_{out}$의 차이가 크게 나타나므로, depthwise separable은 같은 $C_{out}$을 유지하면서도 계산을 줄일 수 있다.
+에 해당한다. $C_{out}$이 충분히 큰 일반적인 구간에서는 $k^2\cdot C_{in}\cdot C_{out}$와 $C_{in}\cdot C_{out}$의 차이가 크게 나타나므로, depthwise separable은 같은 $C_{out}$을 유지하면서도 계산을 줄일 수 있다.
 
 다만 논문이 Table 3에서 보여주듯, 모델 전체 관점의 속도는 단순한 FLOPs만으로 결정되지 않는다. depthwise convolution은 연산 패턴이 정규 convolution과 달라, 당시의 라이브러리 및 커널 최적화 수준에 따라 실제 steps/second가 불리해질 수 있음을 논문이 직접 언급한다.
 
@@ -120,7 +127,7 @@ $$
 Fig. 3의 segmented convolution을 구현 관점에서 정리하면, channel dimension을 $g$개 그룹으로 나누는 grouped convolution으로 해석할 수 있다. $g$를 그룹 수라고 할 때, grouped convolution의 파라미터 수는 대략
 
 $$
-\\frac{k^2\\cdot C_{in}\\cdot C_{out}}{g}
+\frac{k^2\cdot C_{in}\cdot C_{out}}{g}
 $$
 
 이 된다. 여기서
@@ -129,6 +136,8 @@ $$
 - $g$가 커질수록 채널 혼합이 제한된 형태  
 
 로 이동한다. 극단에서 depthwise convolution은 $g=C_{in}$이고, 이때 각 그룹의 출력 채널이 1개로 고정되는 특수한 형태로 이해할 수 있다. 논문이 말하는 연속체는, 결국 이 $g$라는 설계 변수를 통해 정규 convolution에서 depthwise로 이동하는 경로가 존재한다는 주장으로 읽을 수 있다.
+
+---
 
 ## 2️⃣ Prior Work
 
@@ -152,7 +161,7 @@ $$
 여기서 중요한 구분이 하나 있다. 논문은 deep learning 프레임워크에서 separable convolution이라 부르는 것이 **depthwise separable**을 가리키는 경우가 많으며, 영상처리 문맥에서 separable convolution이라 부르는 **spatially separable(예: 7×1, 1×7)**과는 다르다는 점을 명시한다. Xception은 전자의 의미를 사용한다.
 
 #### Spatial Factorization And Depthwise Factorization의 구분
-Inception V3를 읽어본 독자는 7×7 convolution을 7×1과 1×7로 나누는 식의 factorization을 떠올릴 수 있다. 이 경우의 분해는 공간 축($k\\times k$)을 두 단계로 쪼개는 것으로, 채널 혼합($C_{in}\\to C_{out}$)은 각 단계에서 여전히 일어난다.
+Inception V3를 읽어본 독자는 7×7 convolution을 7×1과 1×7로 나누는 식의 factorization을 떠올릴 수 있다. 이 경우의 분해는 공간 축($k\times k$)을 두 단계로 쪼개는 것으로, 채널 혼합($C_{in}\to C_{out}$)은 각 단계에서 여전히 일어난다.
 
 반면 depthwise separable convolution에서의 분해는 공간 변환과 채널 혼합을 분리한다. 따라서 두 분해는 방향이 다르다.
 
@@ -182,6 +191,8 @@ Xception의 middle flow는 동일 형태 모듈을 반복하는 구조이며, �
 3. 깊은 구조에서의 수렴 속도를 개선하는  
 
 방향으로 작동한다. 논문이 residual의 효과를 별도 실험으로 분리해 확인하는 것도, Xception 구조가 단순 반복을 핵심으로 삼기 때문이다.
+
+---
 
 ## 3️⃣ Xception Architecture
 
@@ -230,7 +241,9 @@ Xception의 middle flow는 동일 형태 모듈을 반복하는 구조이며, �
 
 논문은 Fig. 5에서 Xception 아키텍처를 제시하며, 데이터가 entry → middle(8회 반복) → exit 순으로 흐른다고 명시한다. 또한 다이어그램에서는 생략되지만, 모든 Convolution 및 Separable Convolution 뒤에 Batch Normalization이 존재한다고 설명한다.
 
-(Fig. 5: Xception 전체 아키텍처(Entry Flow, Middle Flow×8, Exit Flow), BN 표기 생략)  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/ab95f75c-1b1c-424e-9028-5059bc5b12bb/image.png" width="70%">
+</p>
 
 #### Entry–Middle–Exit 분해의 설계 효과
 Entry, Middle, Exit로 구조를 분해하는 방식은 Inception 계열에서 이미 자주 등장하지만, Xception에서는 분기 구조가 사라지고 선형 스택 형태로 정리되었기 때문에 이 분해가 더 직접적으로 작동한다.
@@ -268,6 +281,8 @@ Entry, Middle, Exit로 구조를 분해하는 방식은 Inception 계열에서 �
 2. head는 이 특징을 클래스 점수로 선형 분류한다.  
 3. FC 삽입 여부는 head의 용량을 바꾸며, 데이터 규모에 따라 효과가 달라질 수 있다.  
 
+---
+
 ## 4️⃣ Experimental Evaluation
 
 ### 🔸 평가 프로토콜: Single Crop, Single Model 기준 비교
@@ -295,16 +310,16 @@ Xception이 ImageNet보다 JFT에서 더 큰 개선을 보인다는 점은, 구�
 
 MAP@100은 각 이미지에서 상위 100개 예측을 사용해 Average Precision을 계산하고, 이를 평균내는 방식이다. 표준적인 정의를 기준으로 쓰면 다음처럼 정리할 수 있다.
 
-한 이미지 $x$에 대해 모델이 예측한 클래스 순위 리스트를 $c_1,\\dots,c_{100}$이라 하고, 정답 라벨 집합을 $Y$라 하자. 그러면 precision@k는
+한 이미지 $x$에 대해 모델이 예측한 클래스 순위 리스트를 $c_1,\dots,c_{100}$이라 하고, 정답 라벨 집합을 $Y$라 하자. 그러면 precision@k는
 
 $$
-P(k)=\\frac{\\left|\\{c_i\\mid i\\le k,\\ c_i\\in Y\\}\\right|}{k}
+P(k)=\frac{\left|\{c_i\mid i\le k,\ c_i\in Y\}\right|}{k}
 $$
 
 로 정의할 수 있다. 이를 사용해 Average Precision@100을
 
 $$
-AP@100 = \\frac{1}{|Y|}\\sum_{k=1}^{100} P(k)\\cdot \\mathbb{1}[c_k\\in Y]
+AP@100 = \frac{1}{|Y|}\sum_{k=1}^{100} P(k)\cdot \mathbb{1}[c_k\in Y]
 $$
 
 로 둘 수 있고, MAP@100은 데이터셋 전체에 대해 $AP@100$을 평균낸 값으로 이해할 수 있다. 논문은 여기에 더해, 클래스별로 자주 등장하는 라벨에 더 큰 가중을 두는 가중 MAP@100을 사용한다고 설명한다.
@@ -359,21 +374,18 @@ $$
 ### 🔹 ImageNet 비교: Inception V3 대비 소폭 개선
 논문은 Table 1에서 ImageNet single crop 성능을 비교한다. VGG-16 및 ResNet-152는 맥락 제공용으로 함께 제시되며, 비교의 핵심은 Inception V3와 Xception이다.
 
-(Table 1: ImageNet Single Crop 성능 비교(Top-1, Top-5))  
-
-| Model | Top-1 Accuracy | Top-5 Accuracy |
-|---|---:|---:|
-| VGG-16 | 0.715 | 0.901 |
-| ResNet-152 | 0.770 | 0.933 |
-| Inception V3 | 0.782 | 0.941 |
-| Xception | 0.790 | 0.945 |
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/c2292a29-9aec-4e26-a8a9-b4c70634c207/image.png" width="40%">
+</p>
 
 이 표가 전달하는 논지는 두 가지다.
 
 1. Xception은 Inception V3와 파라미터 규모가 유사한 조건에서 Top-1/Top-5 모두 개선을 보인다.  
 2. 개선 폭은 ImageNet에서는 크지 않지만, 구조적 대체(Inception→Depthwise Separable)가 유효함을 보여준다.  
 
-(Fig. 6: ImageNet에서의 학습 곡선(Training Profile))  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/e9b38e54-29f7-415b-8cd4-c957ad1c37e4/image.png" width="40%">
+</p>
 
 #### Table 1 해석: 절대 성능과 설계 논증의 연결
 Table 1의 핵심 비교는 Inception V3와 Xception의 근접한 스케일에서의 성능 차이다. Top-1이 0.782에서 0.790으로, Top-5가 0.941에서 0.945로 이동하는 것은 큰 폭의 도약은 아니지만, 다음 사실을 동시에 만족한다.
@@ -386,19 +398,15 @@ Table 1의 핵심 비교는 Inception V3와 Xception의 근접한 스케일에�
 ### 🔸 JFT 비교: 큰 데이터에서의 더 큰 이득
 논문은 JFT에서 Xception이 Inception V3 대비 4.3%의 상대 개선을 보인다고 정리한다. Table 2는 fully-connected layer 포함 여부에 따라 네 가지 조합을 비교한다.
 
-(Table 2: JFT FastEval14k MAP@100 비교(Single Crop, Single Model))  
-
-| Model | FastEval14k MAP@100 |
-|---|---:|
-| Inception V3 (No FC) | 6.36 |
-| Xception (No FC) | 6.70 |
-| Inception V3 (With FC) | 6.50 |
-| Xception (With FC) | 6.78 |
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/28927a52-3bf7-4278-8b18-1e73b64df505/image.png" width="40%">
+</p>
 
 논문은 JFT에서의 개선이 ImageNet보다 훨씬 큰 이유를, Inception V3가 ImageNet을 목표로 설계되어 **ImageNet에 더 맞춰져 있을 가능성**으로 해석한다. 반대로 JFT에는 두 모델 모두 특별히 튜닝된 구조가 아니므로, 구조 자체의 효율 차이가 더 드러날 수 있다는 논리다.
 
-(Fig. 7: JFT에서의 학습 곡선(FC 없음))  
-(Fig. 8: JFT에서의 학습 곡선(FC 포함))  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/b1be1944-ee63-40c2-8072-604da94e2a66/image.png" width="60%">
+</p>
 
 #### Table 2 해석: Head 용량과 Backbone 구조의 상호작용
 Table 2는 backbone 구조(Inception V3 vs Xception)뿐 아니라, head에 fully-connected layer를 추가할지 여부까지 함께 비교한다. 이 조합 비교는 다음과 같은 해석을 가능하게 한다.
@@ -412,12 +420,9 @@ Table 2는 backbone 구조(Inception V3 vs Xception)뿐 아니라, head에 fully
 ### 🔹 모델 크기와 속도: 파라미터는 유사, 속도는 근소하게 느림
 논문은 성능 비교가 단지 수치 향상에 그치지 않도록, Table 3에서 크기/속도를 함께 보고한다. 파라미터 수는 ImageNet(1000 classes, FC 없음) 기준이며, 속도는 60개의 K80 GPU에서 synchronous SGD로 측정한 steps/second다.
 
-(Table 3: Model Size 및 Training Speed 비교)  
-
-| Model | Parameter Count | Steps/Second |
-|---|---:|---:|
-| Inception V3 | 23,626,728 | 31 |
-| Xception | 22,855,952 | 28 |
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/dd6f850c-320d-4675-b5e8-269426e04ea2/image.png" width="40%">
+</p>
 
 논문은 두 모델의 파라미터 수가 매우 유사하므로, ImageNet 및 JFT에서 관측된 개선은 **모델 용량 증가가 아니라 파라미터 사용의 효율**에서 비롯된다는 결론을 강화한다. 또한 depthwise convolution 구현 최적화가 진행되면 Xception이 더 빨라질 수 있다는 전망을 제시한다.
 
@@ -433,7 +438,9 @@ Table 3에서 steps/second가 31에서 28로 감소한 것은, Xception이 더 �
 ### 🔸 Residual Connection 효과: 수렴 속도 및 최종 성능에 핵심적 역할
 논문은 Xception에서 residual connection을 제거한 변형을 ImageNet에서 비교해, residual이 수렴 속도와 최종 성능 모두에 중요하다는 결론을 제시한다.
 
-(Fig. 9: Residual Connection 유무에 따른 Training Profile 비교)  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/bdc6922d-ac60-41d6-a97c-ac4814d31e82/image.png" width="40%">
+</p>
 
 이 실험은 단순한 결론을 말해준다. Xception은 depthwise separable convolution을 쌓는 설계를 취하지만, 그 설계를 깊게 만들기 위해서는 residual이 사실상 필수에 가깝다.
 
@@ -450,7 +457,9 @@ Fig. 9의 비교는 단순히 성능이 좋아진다는 수준을 넘어서, Xce
 ### 🔹 중간 Activation 효과: Depthwise–Pointwise 사이 ReLU/ELU의 부정적 영향
 논문은 depthwise separable convolution과 Inception 모듈의 유사성이 중간 activation 포함을 암시할 수 있음을 언급한다. 그러나 실제로는 ReLU 또는 ELU를 중간에 넣는 것이 오히려 성능을 해친다고 보고한다. 즉, **중간 activation이 없는 설정이 더 빠른 수렴과 더 좋은 최종 성능**을 만든다는 결과를 제시한다.
 
-(Fig. 10: Depthwise–Pointwise 사이 Activation 종류별 Training Profile 비교)  
+<p align="center">
+  <img src="https://velog.velcdn.com/images/lumerico284/post/bc5ae5ee-8e15-4b8e-8cb5-7ed80a8ed6c5/image.png" width="40%">
+</p>
 
 논문은 이 결과를 중간 feature space의 깊이가 얕을수록 non-linearity가 정보 손실을 유발할 수 있다는 직관으로 연결한다.
 
@@ -464,6 +473,8 @@ Depthwise–Pointwise 사이의 activation은 채널 혼합 이전에 적용된�
 는 방향의 설명이 가능하다. 반대로 activation을 pointwise 이후로 미루면, 채널 혼합이 먼저 일어난 뒤 비선형이 적용되므로 채널 조합의 표현력이 더 넓게 유지될 수 있다.
 
 이 실험은 Xception이 단지 연산을 분해한다는 주장에 그치지 않고, 분해된 연산들 사이에 비선형을 어디에 둘지까지 포함해 설계가 완성된다는 점을 강조하는 역할을 한다.
+
+---
 
 ## 5️⃣ Future Directions
 
@@ -489,6 +500,8 @@ Table 3의 속도 결과는 설계 공간 탐색이 정확도만으로 끝나지
 
 을 함께 고려해야 한다. 논문이 미래 과제를 남긴 시점에는 depthwise kernel 최적화가 충분히 성숙하지 않았음을 감안하면, 중간 group setting이 오히려 더 높은 실제 속도를 낼 가능성도 논리적으로 배제할 수 없다.
 
+---
+
 ## 6️⃣ Conclusions
 
 ### 🔹 결론 요약: Inception 대체로서의 Depthwise Separable Stack
@@ -509,7 +522,9 @@ Xception 결론이 인상적인 이유는, 단순히 새로운 블록을 제안�
 
 특히 4단계의 분해 실험은, 설계가 단일 아이디어의 결과가 아니라 여러 선택의 결합임을 보여주며, 독자가 후속 설계를 할 때 무엇을 고정하고 무엇을 바꿔야 하는지에 대한 힌트를 제공한다.
 
-## 💡 해당 논문의 시사점과 한계 혹은 의의
+---
+
+## 💡 해당 논문의 시사점과 한계
 Xception의 의의는 Inception을 단지 잘 설계된 모듈로 보지 않고, **연산 분해의 관점**에서 재정의했다는 데 있다. Inception이 채널·공간 상관관계의 부분적 분해를 수행한다면, Xception은 이를 극단으로 밀어붙여 완전 분해에 가까운 형태를 취한다. 이 덕분에 아키텍처는 오히려 단순해지고, 깊은 반복과 residual을 결합한 선형 스택 형태로 정리된다.
 
 실험적으로는 파라미터 수가 유사한 조건에서 개선을 보이며, 특히 더 큰 데이터에서 개선 폭이 커지는 점이 구조적 효율 주장에 힘을 싣는다. 또한 중간 activation의 유무, residual의 유무를 별도 실험으로 분해해, 설계 선택의 필요성을 논증하려고 한다.
@@ -533,16 +548,16 @@ Inception 계열은 종종 모듈 설계가 경험적 레시피처럼 보이기 
 ---
 
 ## 👨🏻‍💻 Xception Lucid 구현
-Lucid 구현은 `lucid/models/imgclf/xception.py`에 Xception을 직접 구현하고 있다. 구현 해설은 다음 순서로 진행한다.
+파이썬 라이브러리 [`lucid`](https://github.com/ChanLumerico/lucid) 속 구현된 Xception [`xception.py`](https://github.com/ChanLumerico/lucid/blob/main/lucid/models/imgclf/xception.py)을 살펴보자. 구현 해설은 다음 순서로 진행한다.
 
-1. `ConvBNReLU2d`가 Stem에서 수행하는 결합 연산(`lucid/nn/fused.py`)  
-2. Depthwise Separable Convolution이 Lucid에서 어떤 연산으로 구현되는지(`lucid/nn/fused.py`)  
+1. `ConvBNReLU2d`가 Stem에서 수행하는 결합 연산
+2. Depthwise Separable Convolution이 Lucid에서 어떤 연산으로 구현되는지
 3. Xception의 핵심 블록인 `_Block`의 구성과 residual 경로  
 4. `Xception` 클래스의 Entry/Middle/Exit 대응 구조  
 5. 모델 등록 함수 `xception`  
 
 ### 0️⃣ `nn.ConvBNReLU2d`: Stem의 Convolution + Batch Normalization + ReLU 결합
-`Xception` 클래스의 stem은 `ConvBNReLU2d`를 사용해 초기 3×3 convolution 두 개를 구성한다. Lucid 구현에서 `ConvBNReLU2d`는 `lucid/nn/fused.py`의 `_ConvBNReLU`를 2D로 특수화한 클래스다.
+`Xception` 클래스의 stem은 `ConvBNReLU2d`를 사용해 초기 3×3 convolution 두 개를 구성한다.
 
 ```python
 class _ConvBNReLU(nn.Module):
@@ -593,7 +608,7 @@ class ConvBNReLU2d(_ConvBNReLU):
 이 모듈은 `Conv2d → BN → ReLU` 패턴을 하나의 클래스로 묶는다. 논문 Fig. 5에서도 convolution 뒤에 batch normalization이 붙는 패턴이 반복되며, Lucid 구현은 이 반복을 `ConvBNReLU2d`와 `_Block` 내부의 BN 배치로 구현한다.
 
 ### 1️⃣ `nn.DepthSeparableConv2d`: Depthwise 이후 Pointwise
-Xception의 핵심 연산은 `nn.DepthSeparableConv2d`다. Lucid에서는 `lucid/nn/fused.py`의 `_DepthSeparableConv`를 통해 depthwise와 pointwise를 다음처럼 구현한다.
+Xception의 핵심 연산은 `nn.DepthSeparableConv2d`다. Lucid의 `_DepthSeparableConv`를 통해 depthwise와 pointwise를 다음처럼 구현한다.
 
 ```python
 class _DepthSeparableConv(nn.Module):
@@ -647,9 +662,9 @@ class _DepthSeparableConv(nn.Module):
 `_DepthSeparableConv`에 있는 `self.reversed = reversed`는 이 클래스의 forward 경로에서 직접 사용되지는 않는다. 따라서 Xception 구현을 이해하는 관점에서는 핵심 요소가 아니며, 연산 정의와도 무관하다. 다만 코드가 실제로 포함하고 있는 필드이므로, Lucid 구현과 논문 정의가 만나는 지점을 확인할 때는 depthwise/pointwise 두 conv와 그 순서를 중심으로 보면 충분하다.
 
 ### 2️⃣ `_Block`: Depthwise Separable Stack과 Residual Skip
-`lucid/models/imgclf/xception.py`의 `_Block`은 Xception의 모듈 단위를 구현한다. 입력/출력 채널과 반복 횟수(`reps`), 다운샘플링(`stride`) 및 블록 내부의 배치 규칙을 인자로 받는다.
+`_Block`은 Xception의 모듈 단위를 구현한다. 입력/출력 채널과 반복 횟수(`reps`), 다운샘플링(`stride`) 및 블록 내부의 배치 규칙을 인자로 받는다.
 
-#### 2.1 Skip 경로 정의: 채널/해상도 불일치 시 1×1 Projection
+#### Skip 경로 정의: 채널/해상도 불일치 시 1×1 Projection
 `_Block.__init__`은 `out_channels != in_channels` 또는 `stride != 1`이면 skip 경로에 1×1 convolution과 BN을 둔다.
 
 ```python
@@ -664,7 +679,7 @@ else:
 
 이는 ResNet의 projection shortcut과 동일한 역할을 한다. 다운샘플링이 있거나 채널 수가 바뀌면, skip 경로를 통해 shape을 맞춘 뒤 더한다.
 
-#### 2.2 Main 경로 구성: `reps`에 따른 반복 DepthSeparableConv2d
+#### Main 경로 구성: `reps`에 따른 반복 DepthSeparableConv2d
 `rep` 리스트를 구성하는 핵심은 두 개의 플래그다.
 
 - `start_with_relu`: 블록 첫 연산에서 ReLU를 둘지 여부  
@@ -706,7 +721,7 @@ if not grow_first:
     rep.append(nn.BatchNorm2d(out_channels))
 ```
 
-#### 2.3 ReLU 시작 조건과 Downsampling
+#### ReLU 시작 조건과 Downsampling
 `start_with_relu`에 따라 첫 ReLU를 제거하거나 유지한다.
 
 ```python
@@ -725,7 +740,7 @@ if stride != 1:
 
 이 구성은 논문 Fig. 5에서 entry/exit flow에서 다운샘플링이 들어가는 모듈들의 역할과 대응된다.
 
-#### 2.4 Forward: Main 경로와 Skip 경로의 합
+#### Forward: Main 경로와 Skip 경로의 합
 `_Block.forward`는 main 경로를 통과한 뒤, skip을 더한다.
 
 ```python
@@ -747,7 +762,7 @@ def forward(self, x: Tensor) -> Tensor:
 ### 3️⃣ `Xception`: Entry Flow, Middle Flow×8, Exit Flow 대응
 `Xception` 클래스는 논문 Fig. 5의 큰 흐름을 코드로 조립한다.
 
-#### 3.1 Stem: 두 개의 초기 Convolution
+#### Stem: 두 개의 초기 Convolution
 초기 부분은 `ConvBNReLU2d`를 사용해 3×3 convolution 두 번으로 채널을 32, 64로 늘린다.
 
 ```python
@@ -759,7 +774,7 @@ self.conv2 = nn.ConvBNReLU2d(32, 64, kernel_size=3, conv_bias=False)
 
 여기서 `conv1`은 stride 2로 해상도를 줄이고, `conv2`는 stride 1로 추가 변환을 수행한다.
 
-#### 3.2 Entry Flow: 채널 확장과 다운샘플링을 포함한 3개 블록
+#### Entry Flow: 채널 확장과 다운샘플링을 포함한 3개 블록
 entry flow는 `_Block` 3개로 구성된다.
 
 ```python
@@ -770,7 +785,7 @@ self.block3 = _Block(256, 728, reps=2, stride=2)
 
 각 블록은 stride 2로 다운샘플링을 수행하면서 채널을 128, 256, 728로 확장한다. `block1`이 `start_with_relu=False`인 것은 블록 경계에서 activation 배치를 조정하기 위한 설정으로 읽을 수 있다.
 
-#### 3.3 Middle Flow: 동일 채널(728)에서 반복되는 8개 블록
+#### Middle Flow: 동일 채널(728)에서 반복되는 8개 블록
 middle flow는 동일한 `_Block(728, 728, reps=3)`를 8회 반복한 `nn.Sequential`이다.
 
 ```python
@@ -779,7 +794,7 @@ self.mid_blocks = nn.Sequential(*[_Block(728, 728, reps=3) for _ in range(8)])
 
 논문이 middle flow 반복을 강조하는 지점과 동일하게, 구현도 반복 구조가 매우 명확하다.
 
-#### 3.4 Exit Flow: 채널 확장(1024→1536→2048)과 분류 Head
+#### Exit Flow: 채널 확장(1024→1536→2048)과 분류 Head
 exit flow의 첫 단계는 `end_block`이다.
 
 ```python
@@ -803,7 +818,7 @@ self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 self.fc = nn.Linear(2048, num_classes)
 ```
 
-#### 3.5 Forward 전체 흐름
+#### Forward 전체 흐름
 forward는 논문 도식의 순서를 그대로 따른다.
 
 ```python
@@ -826,10 +841,10 @@ def forward(self, x: Tensor) -> Tensor:
 
 여기서 중요한 구현 포인트는 다음이다.
 
-1. Entry flow는 `block1 → block2 → block3`로 직렬 적용된다.  
-2. Middle flow는 `self.mid_blocks`로 반복이 추상화된다.  
-3. Exit flow는 `end_block` 이후 separable conv + BN + ReLU 2회로 마무리된다.  
-4. 분류 head는 `AdaptiveAvgPool2d((1,1)) → flatten → Linear`이다.  
+1. Entry flow는 `block1 → block2 → block3`로 직렬 적용된다.
+2. Middle flow는 `self.mid_blocks`로 반복이 추상화된다.
+3. Exit flow는 `end_block` 이후 separable conv + BN + ReLU 2회로 마무리된다.
+4. 분류 head는 `AdaptiveAvgPool2d((1,1)) → flatten → Linear`이다.
 
 즉, 논문이 강조한 Xception의 장점 중 하나인 구조적 단순성이 코드 구조에서도 그대로 나타난다.
 
@@ -855,4 +870,4 @@ Xception은 Inception 모듈을 연산 분해의 관점에서 재해석하고, �
 - 구현 대응: `DepthSeparableConv2d` + `_Block` residual 모듈 + `Xception`의 Entry/Middle/Exit 조립  
 
 #### 📄 출처
-Chollet, François. "Xception: Deep Learning With Depthwise Separable Convolutions." *2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 2017, arXiv:1610.02357. https://arxiv.org/abs/1610.02357.
+Chollet, François. "Xception: Deep Learning With Depthwise Separable Convolutions." *2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 2017, arXiv:1610.02357.
